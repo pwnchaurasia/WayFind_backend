@@ -24,6 +24,13 @@ services:
     volumes:
       - dragonflydata:/data
 
+  rabbitmq_consumer:
+    build: .
+    container_name: rabbitmq_consumer
+    command: python utils/rabbitMQ_consumer.py
+    depends_on:
+      - rabbitmq
+
 volumes:
   rabbitmq_data:
   dragonflydata:
