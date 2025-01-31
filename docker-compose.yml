@@ -1,0 +1,29 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  dragonfly:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    ulimits:
+      memlock: -1
+    container_name: dragonfly
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["--maxmemory=1GB"]  # Adjust memory limit as needed
+    volumes:
+      - dragonflydata:/data
+
+volumes:
+  rabbitmq_data:
+  dragonflydata:

@@ -1,4 +1,7 @@
 from dotenv import load_dotenv
+
+from utils.app_logger import createLogger
+
 # load .env file , all the imports must happen after this, so that envs are access to every file
 load_dotenv('.env')
 
@@ -8,7 +11,7 @@ from fastapi.routing import APIRoute
 from api import main
 
 
-
+logger = createLogger("app")
 
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"

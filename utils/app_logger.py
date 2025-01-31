@@ -1,0 +1,91 @@
+import logging
+import logging.config
+import sys
+import traceback
+from functools import wraps
+from datetime import datetime, timezone
+
+from utils.constants import LOGGING_CONFIG
+from utils.dependencies import get_current_user
+
+
+
+# """
+# Notes: Order of logs
+#
+# 1. loglevel = debug, it will log (debug,info,warn,error,critical) statements
+# 2. loglevel = info, it will log (info,warn,error,critical) statements
+# 3. loglevel = warn, it will log (warn,error,critical) statements
+# 4. loglevel = error, it will log (error,critical) statements
+# 5. loglevel = critical, it will log (critical) statements
+#
+# logger.debug("Something debug")
+# logger.info("It works.")
+# logger.warn("Something not ideal")
+# logger.error("Something went wrong")
+# """
+
+logging.config.dictConfig(config=LOGGING_CONFIG)
+
+def createLogger(logHandler):
+    logger = logging.getLogger(logHandler)
+    # logger = setLoggerLevel(logger,settings.APP_LOGGING_LEVEL)
+    return logger
+
+
+def setLoggerLevel(logger, loglevel):
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARN": logging.WARN,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }
+    logger.setLevel(level_map.get(loglevel, logging.INFO))
+    return logger
+
+
+# Logging decorator for function entry/exit logs
+def functionlogs(log="app"):
+    def wrap(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            logger = logging.getLogger(log)
+            init_time = datetime.now(timezone.utc)
+            func_str = "{}.{}".format(function.__module__, function.__qualname__)
+            user = "user={}".format(get_current_user())
+            try:
+                response = function(*args, **kwargs)
+            except Exception as error:
+                log_enter_text = "[core][{0}][ENTER] {1}: with input={2} kwargs={3}".format(
+                    func_str, str(user), args, kwargs)
+                logger.debug(log_enter_text)
+
+                log_error_text = "[core][{0}][ERROR] {1}: error={2}".format(func_str, str(user), str(error))
+                logger.error(log_error_text)
+                raise error
+
+            end_time = datetime.now(timezone.utc)
+            time_taken = end_time - init_time
+            try:
+                log_enter_text = "[core][{0}][ENTER] {1}: with input={2} kwargs={3}".format(
+                    func_str, str(user), args, kwargs
+                )
+                logger.debug(log_enter_text)
+                log_exit_text = "[core][{0}][EXIT] {1}: response={2} in {3} seconds".format(
+                    func_str, str(user), response, time_taken)
+                logger.debug(log_exit_text)
+            except:
+                pass
+
+            return response
+        return wrapper
+    return wrap
+
+
+# Exception logging function
+def exceptionlogs(e, log="app"):
+    logger = logging.getLogger(log)
+    log_error_text = f"Error Line: {sys.exc_info()[2].tb_lineno} {e} {sys.exc_info()[2].tb_frame.f_code.co_filename}"
+    logger.error(log_error_text)
+    logger.error(traceback.format_exc())
