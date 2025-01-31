@@ -7,9 +7,8 @@ load_dotenv('.env')
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-
 from api import main
-
+from utils import dragonfly_redis
 
 logger = createLogger("app")
 

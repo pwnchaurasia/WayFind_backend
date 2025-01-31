@@ -20,7 +20,7 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: ["--maxmemory=1GB"]  # Adjust memory limit as needed
+    command: ["--maxmemory=2GB"]  # Adjust memory limit as needed
     volumes:
       - dragonflydata:/data
 
