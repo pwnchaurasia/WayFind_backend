@@ -1,5 +1,5 @@
 import os
-import redis
+
 from utils import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -24,19 +24,4 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-
-class RedisInstance:
-    _instance = None
-    def __new__(cls, *args, **kwargs):
-        if not isinstance(cls._instance, cls):
-            cls.__instance = super(RedisInstance, cls).__new__(cls)
-            db = redis.StrictRedis(
-                host=os.getenv("REDIS_HOST"),
-                port=os.getenv("REDIS_PORT"),
-                decode_responses=True
-            )
-            cls._instance = db
-        return cls._instance
 

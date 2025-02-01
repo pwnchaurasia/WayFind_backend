@@ -2,13 +2,13 @@ import os
 import sys
 import time
 from dotenv import load_dotenv
+
+from pubsub.rabbit_conn import RabbitMQConn
+
 load_dotenv('../.env')
+path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(path)
 
-
-pp = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-print(pp)
-sys.path.append(pp)
-from utils.rabbit_conn import RabbitMQConn
 
 
 

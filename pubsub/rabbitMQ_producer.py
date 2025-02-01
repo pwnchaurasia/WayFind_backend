@@ -1,8 +1,5 @@
 import pika
-
-from utils.rabbit_conn import RabbitMQConn
-
-
+from pubsub.rabbit_conn import RabbitMQConn
 
 
 class RabbitMQProducer:

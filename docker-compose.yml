@@ -27,7 +27,7 @@ services:
   rabbitmq_consumer:
     build: .
     container_name: rabbitmq_consumer
-    command: python utils/rabbitMQ_consumer.py
+    command: python pubsub/rabbitMQ_consumer.py
     working_dir: /app
     depends_on:
       - rabbitmq
