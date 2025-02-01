@@ -1,18 +1,11 @@
 from dotenv import load_dotenv
-
-from utils.app_logger import createLogger
-from utils.conn import RabbitMQ
-
-# load .env file , all the imports must happen after this, so that envs are access to every file
 load_dotenv('.env')
+from utils.app_logger import createLogger
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from api import main
 
-
-rabbit = RabbitMQ()
-rabbit.publish("location", "Some message")
 
 logger = createLogger("app")
 

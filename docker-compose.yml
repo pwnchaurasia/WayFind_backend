@@ -4,8 +4,8 @@ services:
     container_name: rabbitmq
     restart: always
     environment:
-      RABBITMQ_DEFAULT_USER: user
-      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -28,6 +28,7 @@ services:
     build: .
     container_name: rabbitmq_consumer
     command: python utils/rabbitMQ_consumer.py
+    working_dir: /app
     depends_on:
       - rabbitmq
 

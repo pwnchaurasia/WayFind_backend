@@ -1,5 +1,14 @@
+import os
+import sys
 import time
-from utils.conn import RabbitMQConn
+from dotenv import load_dotenv
+load_dotenv('../.env')
+
+
+pp = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+print(pp)
+sys.path.append(pp)
+from utils.rabbit_conn import RabbitMQConn
 
 
 
@@ -54,3 +63,8 @@ consumer3 = RabbitMQConsumer("scheduled_jobs")
 consumer3.start_consuming()  # Runs for scheduled jobs
 
 """
+
+if __name__ == "__main__":
+    queue_name = os.getenv("RABBITMQ_QUEUE", "location")
+    consumer = RabbitMQConsumer(queue_name)
+    consumer.start_consuming()

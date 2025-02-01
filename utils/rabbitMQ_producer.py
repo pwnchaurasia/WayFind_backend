@@ -1,5 +1,7 @@
 import pika
-from utils.conn import RabbitMQConn
+
+from utils.rabbit_conn import RabbitMQConn
+
 
 
 

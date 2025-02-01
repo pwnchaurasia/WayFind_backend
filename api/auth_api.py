@@ -7,6 +7,7 @@ from utils import User
 from utils import app_logger
 from utils.conn import get_db
 from utils import error_msgs
+from utils.rabbitMQ_producer import RabbitMQProducer
 from utils.schemas import UserRegistration, OTPVerification
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -23,8 +24,10 @@ async def root():
 @router.post("/request-otp", status_code=status.HTTP_200_OK)
 async def register_user(request:UserRegistration):
     try:
+        rabbit = RabbitMQProducer()
+        rabbit.publish("location", "Some message")
 
-        return {"msg": "User registered successfully", "user_id": new_user.id}
+        return {"msg": "User registered successfully", "user_id": "new_user.id"}
     except Exception as e:
         app_logger.exceptionlogs(f"Error in register user, Error: {e}")
         return {
