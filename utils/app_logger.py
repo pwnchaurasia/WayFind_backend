@@ -6,7 +6,6 @@ import sys
 import traceback
 from functools import wraps
 from datetime import datetime, timezone
-from utils.dependencies import get_current_user
 
 
 
@@ -94,6 +93,7 @@ def functionlogs(log="app"):
     def wrap(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
+            from utils.dependencies import get_current_user
             logger = logging.getLogger(log)
             init_time = datetime.now(timezone.utc)
             func_str = "{}.{}".format(function.__module__, function.__qualname__)

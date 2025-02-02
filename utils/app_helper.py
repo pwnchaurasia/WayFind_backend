@@ -3,12 +3,14 @@ import hashlib
 import hmac
 import random
 from datetime import datetime, timezone, timedelta
-from fastapi import  Request, status
+from fastapi import Request, status, HTTPException
 from fastapi.responses import JSONResponse
 
 import jwt
 from fastapi.exceptions import RequestValidationError
 
+from db.db_conn import get_db
+from db.models import User
 from utils import app_logger
 from utils.redis_helper import RedisHelper
 
@@ -17,6 +19,15 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
 REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 
+
+
+# def get_current_user():
+#     """Retrieve authenticated user from context"""
+#     user = user_context.get()
+#     if not user:
+#         raise Exception("User not authenticated")
+#     return user
+#
 
 def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
@@ -89,7 +100,7 @@ def create_auth_token(user):
     expire = datetime.now(timezone.utc) + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
     data = {
         'user_id': user.id,
-        'mobile': hash_mobile_number(user.phone_number),
+        'mobile_number': hash_mobile_number(user.phone_number),
         "exp": expire
     }
     return jwt.encode(data, SECRET_KEY, algorithm="HS256")
@@ -99,8 +110,38 @@ def create_refresh_token(user):
     expire = datetime.now(timezone.utc) + timedelta(days=int(REFRESH_TOKEN_EXPIRE_DAYS))
     data = {
         'user_id': user.id,
-        'mobile': hash_mobile_number(user.phone_number),
+        'mobile_number': hash_mobile_number(user.phone_number),
         "exp": expire
     }
 
     return jwt.encode(data, SECRET_KEY, algorithm="HS256")
+
+def decode_jwt(token: str):
+    """Decodes and verifies JWT token"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        exp = payload.get("exp")
+
+        if not exp or datetime.now(timezone.utc) > datetime.utcfromtimestamp(exp):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+def verify_user_from_token(token: str):
+    """Verifies user from JWT token"""
+    payload = decode_jwt(token)
+    user_id = payload.get("user_id")
+    hashed_mobile = payload.get("mobile")
+
+    db = get_db()
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
+        raise HTTPException(status_code=401, detail="Invalid user authentication")
+
+    return user

@@ -1,14 +1,12 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.params import Depends
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from db.db_conn import get_db
 from db.models import User
 from db.schemas import UserRegistration, OTPVerification
-from pubsub.rabbitMQ_producer import RabbitMQProducer
 from utils import app_logger, error_msgs
-from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token
+from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -16,12 +14,12 @@ logger = app_logger.createLogger("app")
 
 
 
-@router.get("/")
+@router.get("/", name="root")
 async def root():
     return {"message": "Hello World"}
 
 @app_logger.functionlogs(log="app")
-@router.post("/request-otp", status_code=status.HTTP_200_OK)
+@router.post("/request-otp", status_code=status.HTTP_200_OK, name="request-otp")
 async def request_user(request: UserRegistration):
     try:
         if request.phone_number:
@@ -39,7 +37,7 @@ async def request_user(request: UserRegistration):
 
 
 @app_logger.functionlogs(log="app")
-@router.post("/verify-otp", status_code=status.HTTP_200_OK)
+@router.post("/verify-otp", status_code=status.HTTP_200_OK, name="verify-otp")
 async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(get_db)):
     if request.phone_number and request.otp:
         is_verified = verify_otp(identifier=request.phone_number, otp_input=request.otp, otp_type="mobile_verification")
@@ -77,3 +75,21 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"status": "error", "message": "Please provide mobile number and OTP"}
         )
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp")
+
+@router.post("/refresh")
+def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Verify refresh token and issue new access token"""
+    payload = verify_user_from_token(refresh_token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    user = db.query(User).filter(User.id == payload.get("user_id")).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    auth_token = create_auth_token(user)
+
+    return {"access_token": auth_token, "token_type": "bearer"}

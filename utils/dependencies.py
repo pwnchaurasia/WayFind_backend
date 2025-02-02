@@ -1,24 +1,34 @@
-import contextvars
+
 from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 
+from db.db_conn import get_db
+from db.models import User
+from utils.app_helper import verify_user_from_token, hash_mobile_number
 
-_current_user = contextvars.ContextVar("current_user", default=None)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def set_current_user(user):
-    _current_user.set(user)
-
-def get_current_user():
-    return _current_user.get()
-
-async def auth_dependency(request: Request):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     # Example: parse Authorization header, decode JWT
     # user = ...
     # TODO : need to check user here using the auth token of user, JWT
-    user = True
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
-    set_current_user(user)  # store in the context var
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    payload = verify_user_from_token(token)
+    if not payload:
+        raise credentials_exception
+
+    # ✅ Extract user ID and verify user exists
+    user = db.query(User).filter(User.id == payload.get("user_id", None)).first()
+    if user is None:
+        raise credentials_exception
+
+    if hash_mobile_number(str(user.phone_number)) != payload.get('mobile_number', None):
+        raise credentials_exception
+
     return user
