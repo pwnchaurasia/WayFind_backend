@@ -1,9 +1,18 @@
 import os
+import hashlib
+import hmac
 import random
+from datetime import datetime, timezone, timedelta
+import jwt
 
 from utils import app_logger
 from utils.redis_helper import RedisHelper
 
+
+SECRET_KEY = os.getenv('SECRET_KEY')
+HASH_SECRET = os.getenv('HASH_SECRET')
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
+REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 
 def generate_otp(identifier, otp_type="mobile_verification"):
     """
@@ -30,11 +39,45 @@ def verify_otp(identifier, otp_input, otp_type="mobile_verification"):
         :param otp_type: Type of OTP verification.
         :return: True if valid, False otherwise.
     """
-    redis_client = RedisHelper()
-    otp_key = f"otp:{otp_type}:{identifier}"
-    stored_otp = redis_client.get(otp_key)
+    try:
+        redis_client = RedisHelper()
+        otp_key = f"otp:{otp_type}:{identifier}"
+        stored_otp = redis_client.get(otp_key)
 
-    if stored_otp and stored_otp == otp_input:
-        redis_client.delete(otp_key)  # OTP is valid, remove it
-        return True
-    return False
+        if stored_otp and stored_otp == otp_input:
+            redis_client.delete(otp_key)  # OTP is valid, remove it
+            return True
+        return False
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in generate_otp, Error: {e}")
+        return None
+
+
+def hash_mobile_number(mobile_number):
+    """
+        Hashes mobile number using HMAC-SHA256
+        :param mobile_number
+    """
+    return hmac.new(HASH_SECRET.encode(), str(mobile_number).encode(), hashlib.sha256).hexdigest()
+
+
+def generate_token(user):
+    """Generates an access token with expiration."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
+    data = {
+        'user_id': user.id,
+        'mobile': hash_mobile_number(user.phone_number),
+        "exp": expire
+    }
+    return jwt.encode(data, SECRET_KEY, algorithm="HS256")
+
+def create_refresh_token(user):
+    """Generates a refresh token with longer expiration."""
+    expire = datetime.now(timezone.utc) + timedelta(days=int(REFRESH_TOKEN_EXPIRE_DAYS))
+    data = {
+        'user_id': user.id,
+        'mobile': hash_mobile_number(user.phone_number),
+        "exp": expire
+    }
+
+    return jwt.encode(data, SECRET_KEY, algorithm="HS256")

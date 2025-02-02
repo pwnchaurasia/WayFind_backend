@@ -11,6 +11,14 @@
 - run development server `fastapi dev main.py`
 
 
+## to generate a salt use this
+`bash
+openssl rand -hex 32
+`
+
+
+
+
 ## Features
 
 - [] Scan contact.

@@ -43,7 +43,22 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
     if request.phone_number and request.otp:
         is_verified = verify_otp(identifier=request.phone_number, otp_input=request.otp, otp_type="mobile_verification")
         if is_verified:
+
+            try:
+                user = db.query(User).filter(User.phone_number == request.phone_number).first()
+                if not user:
+                    user = User(phone_number=request.phone_number, is_phone_verified=True, is_active=True)
+                else:
+                    user.is_phone_verified = True
+                    user.is_active = True
+                db.add(user)
+                db.commit()
+                db.refresh(user)
             # TODO: generate auth token and refresh token
+
+            except Exception as e:
+                app_logger.exceptionlogs(f"Error while finding or creating the user, Error {e}")
+
             return {"access_token": "token", "refresh_token": "refresh"}
         else:
             return HTTPException(
@@ -53,20 +68,7 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
 
     # TODO: verify OTP and mobile number from cache and check if its expired
     # TODO: if passed, create user if not exists or just re enable them
-    existing_user = db.query(User).filter(User.phone_number == request.phone_number).first()
 
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this phone number already exists."
-        )
-    try:
-        new_user = User(phone_number=request.phone_number)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-    except Exception as e:
-        print(f"Exception here error: {e}")
 
     # Check if user exists → Login, else Register
     user_exists = False  # Assume user does not exist
