@@ -14,7 +14,6 @@ from utils.redis_helper import RedisHelper
 
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-HASH_SECRET = os.getenv('HASH_SECRET')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
 REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 
@@ -81,7 +80,8 @@ def hash_mobile_number(mobile_number):
         Hashes mobile number using HMAC-SHA256
         :param mobile_number
     """
-    return hmac.new(HASH_SECRET.encode(), str(mobile_number).encode(), hashlib.sha256).hexdigest()
+    hash_secret = os.getenv('HASH_SECRET')
+    return hmac.new(hash_secret.encode(), str(mobile_number).encode(), hashlib.sha256).hexdigest()
 
 
 def create_auth_token(user):

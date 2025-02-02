@@ -28,7 +28,8 @@ async def request_user(request: UserRegistration):
             otp = generate_otp(identifier=request.phone_number, otp_type="mobile_verification")
             if not otp:
                 return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"message": "Please try again!!."})
-            return {"msg": "Otp sent to your mobile number. Please verify Using it", "user_id": f"new_user.id {otp}"}
+            # TODO : remove OTP from here. its just temporary for testing
+            return {"msg": "Otp sent to your mobile number. Please verify Using it", "temp_otp": f"{otp}"}
     except Exception as e:
         app_logger.exceptionlogs(f"Error in register user, Error: {e}")
         return {
@@ -56,14 +57,16 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
                 auth_token = create_auth_token(user)
                 refresh_token = create_refresh_token(user)
                 return {
-                    "auth_token": auth_token,
+                    "access_token": auth_token,
                     "refresh_token": refresh_token,
                     "is_profile_complete": user.is_profile_complete
                 }
             except Exception as e:
                 app_logger.exceptionlogs(f"Error while finding or creating the user, Error {e}")
-
-            return {"access_token": "token", "refresh_token": "refresh"}
+                return HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"status": "error", "message": "Invalid OTP. Please try again"}
+                )
         else:
             return HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,11 +1,8 @@
 from dotenv import load_dotenv
-from fastapi.exceptions import RequestValidationError
-
-from utils.app_helper import validation_exception_handler
-
 load_dotenv('.env')
+from fastapi.exceptions import RequestValidationError
+from utils.app_helper import validation_exception_handler
 from utils.app_logger import createLogger
-
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from api import main
