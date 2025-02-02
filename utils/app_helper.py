@@ -3,7 +3,11 @@ import hashlib
 import hmac
 import random
 from datetime import datetime, timezone, timedelta
+from fastapi import  Request, status
+from fastapi.responses import JSONResponse
+
 import jwt
+from fastapi.exceptions import RequestValidationError
 
 from utils import app_logger
 from utils.redis_helper import RedisHelper
@@ -13,6 +17,25 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 HASH_SECRET = os.getenv('HASH_SECRET')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
 REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
+
+
+def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error["loc"][1:])  # Extract field name
+        errors.append({
+            "field": field,
+            "message": error["msg"]
+        })
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "error",
+            "message": "Validation failed. Please check your input.",
+            "errors": errors
+        },
+    )
+
 
 def generate_otp(identifier, otp_type="mobile_verification"):
     """
@@ -61,7 +84,7 @@ def hash_mobile_number(mobile_number):
     return hmac.new(HASH_SECRET.encode(), str(mobile_number).encode(), hashlib.sha256).hexdigest()
 
 
-def generate_token(user):
+def create_auth_token(user):
     """Generates an access token with expiration."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
     data = {

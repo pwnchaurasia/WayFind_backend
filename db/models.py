@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.util import hybridproperty
+
 from utils import Base
 
 
@@ -20,6 +22,12 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     groups = relationship("GroupMembership", back_populates="user", cascade="all, delete-orphan")
+
+    @hybridproperty
+    def is_profile_complete(self):
+        if not self.name or not self.email or not self.profile_picture_url:
+            return False
+        return True
 
 
 class Group(Base):

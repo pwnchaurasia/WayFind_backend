@@ -8,7 +8,7 @@ from db.models import User
 from db.schemas import UserRegistration, OTPVerification
 from pubsub.rabbitMQ_producer import RabbitMQProducer
 from utils import app_logger, error_msgs
-from utils.app_helper import generate_otp, verify_otp
+from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,7 +43,6 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
     if request.phone_number and request.otp:
         is_verified = verify_otp(identifier=request.phone_number, otp_input=request.otp, otp_type="mobile_verification")
         if is_verified:
-
             try:
                 user = db.query(User).filter(User.phone_number == request.phone_number).first()
                 if not user:
@@ -54,8 +53,13 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-            # TODO: generate auth token and refresh token
-
+                auth_token = create_auth_token(user)
+                refresh_token = create_refresh_token(user)
+                return {
+                    "auth_token": auth_token,
+                    "refresh_token": refresh_token,
+                    "is_profile_complete": user.is_profile_complete
+                }
             except Exception as e:
                 app_logger.exceptionlogs(f"Error while finding or creating the user, Error {e}")
 
@@ -65,14 +69,8 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"status": "error", "message": "Invalid OTP. Please try again"}
             )
-
-    # TODO: verify OTP and mobile number from cache and check if its expired
-    # TODO: if passed, create user if not exists or just re enable them
-
-
-    # Check if user exists → Login, else Register
-    user_exists = False  # Assume user does not exist
-    if user_exists:
-        return {"status": "success", "message": "User logged in", "user_id": 123}
     else:
-        return {"status": "success", "message": "User registered", "user_id": 456}
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"status": "error", "message": "Please provide mobile number and OTP"}
+        )
