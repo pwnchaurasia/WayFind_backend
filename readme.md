@@ -45,12 +45,26 @@ openssl rand -hex 32
 
 - [X] login page
 - [X] Signup
-- [X] User list api,
+- [X] Update User Profile,
 - [] Create Group
-- [] add user to group
-- [] share group link to join the group
+- [] Share Link of Group
+- [] People Can Join Via Group Link. 
+- [] Group Settings, Max can have 10 People in a Group
 - [] Render Map
-- [] Render User marker
+- [] One user can be in max one group at a time. Upgrade to be in multiple group
+- [] Render User marker using User location
+- [] WebSocket connection to each group.
 - [] share user location every minute on in backend
 - [] Broadcast the location in that group.
+- [] Speak Feature, take the 30 second audio, and broadcast in the Group
+- [] Buy me coffee link
+- [] Membership Plan, to add more people in the Group, and create more group.
 
+- [] Do stress testing, for 1000s of user location flowing in the system, in 100s of groups.
+- [] Add free version of sentry.
+
+
+
+## Deployment
+- [] Deployment using Gitlab CICD Directly to AWS
+- [] App deployment to playstore and app store

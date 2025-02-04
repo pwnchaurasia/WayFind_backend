@@ -30,14 +30,21 @@ REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 #     return user
 #
 
-def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    body = await request.body()
     errors = []
-    for error in exc.errors():
-        field = ".".join(str(loc) for loc in error["loc"][1:])  # Extract field name
-        errors.append({
-            "field": field,
-            "message": error["msg"]
-        })
+    if not body:
+        model = request.scope["route"].body_field.type_
+        expected_fields = list(model.model_fields.keys())
+        errors = [{"field": field, "message": f"Field '{field}' is required but was not provided."} for field in
+                  expected_fields]
+    else:
+        for error in exc.errors():
+            field = ".".join(str(loc) for loc in error["loc"][1:])  # Extract field name
+            errors.append({
+                "field": field,
+                "message": error["msg"]
+            })
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={

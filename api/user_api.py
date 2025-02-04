@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from fastapi import APIRouter, status, Depends
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import User
@@ -20,11 +21,14 @@ logger = app_logger.createLogger("app")
 def update_user_profile(profile_data: UserProfile,
                               db: Session = Depends(get_db),
                               current_user = Depends(get_current_user)):
-    msg = "Something went wrong!!!"
     try:
         user = db.query(User).filter(User.id == current_user.id).first()
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            return JSONResponse(
+                content={ "status": "error", "message": "Use Not found" },
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
         update_fields = profile_data.model_dump(exclude_unset=True)
 
         # Update fields dynamically
@@ -33,11 +37,16 @@ def update_user_profile(profile_data: UserProfile,
 
         db.commit()
         db.refresh(user)  # Refresh to get updated data
-        msg = "Profile updated"
-        return {"message": msg, "user": UserResponse.model_validate(user)}
-    except HTTPException as he:
-        app_logger.exceptionlogs(f"Error while updating user profile, HttpException Error: {he}")
-        raise he
+
+        return JSONResponse(
+            content={"status": "success", "message": "Profile Updated",
+                     "user": UserResponse.model_validate(user).model_dump()},
+            status_code=status.HTTP_202_ACCEPTED
+        )
+
     except Exception as e:
         app_logger.exceptionlogs(f"Error while updating user profile, Error: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+        return JSONResponse(
+            content={"status": "error", "message": "Something went wrong"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
