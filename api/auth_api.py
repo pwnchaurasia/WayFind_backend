@@ -81,15 +81,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp")
 
 @router.post("/refresh")
 def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """Verify refresh token and issue new access token"""
-    payload = verify_user_from_token(refresh_token)
-    if not payload:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    """Verify refresh token and issue new access token and refresh token"""
+    try:
+        is_verified, user = verify_user_from_token(refresh_token, db=db)
+        if not is_verified:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
-    user = db.query(User).filter(User.id == payload.get("user_id")).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        # sending a fresh access and refresh token so that, user never logs out.
+        auth_token = create_auth_token(user)
+        refresh_token = create_refresh_token(user)
 
-    auth_token = create_auth_token(user)
-
-    return {"access_token": auth_token, "token_type": "bearer"}
+        return {"access_token": auth_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in refresh access token, Error {e}")
+        return {"access_token": "", "refresh_token": "", "token_type": "bearer"}

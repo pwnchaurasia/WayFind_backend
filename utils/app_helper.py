@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 import jwt
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.orm import Session
 
 from db.db_conn import get_db
 from db.models import User
@@ -122,7 +123,7 @@ def decode_jwt(token: str):
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         exp = payload.get("exp")
 
-        if not exp or datetime.now(timezone.utc) > datetime.utcfromtimestamp(exp):
+        if not exp or datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
 
         return payload
@@ -132,16 +133,22 @@ def decode_jwt(token: str):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-def verify_user_from_token(token: str):
+def verify_user_from_token(token: str, db: Session):
     """Verifies user from JWT token"""
-    payload = decode_jwt(token)
-    user_id = payload.get("user_id")
-    hashed_mobile = payload.get("mobile")
+    is_verified = False
+    user = None
+    try:
+        payload = decode_jwt(token)
+        user_id = payload.get("user_id")
+        hashed_mobile = payload.get("mobile_number")
 
-    db = get_db()
-    user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
 
-    if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
-        raise HTTPException(status_code=401, detail="Invalid user authentication")
+        if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
+            raise HTTPException(status_code=401, detail="Invalid user authentication")
+        is_verified = True
 
-    return user
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in verify user from token, Error: {e}")
+
+    return is_verified, user
