@@ -43,8 +43,9 @@ openssl rand -hex 32
 
 ## tasks 
 
-- [] login page
-- [] Signup
+- [X] login page
+- [X] Signup
+- [X] User list api,
 - [] Create Group
 - [] add user to group
 - [] share group link to join the group

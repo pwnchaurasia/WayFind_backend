@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import random
 from datetime import datetime, timezone, timedelta
-from fastapi import Request, status, HTTPException
+from fastapi import Request, status, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 import jwt
@@ -133,7 +133,7 @@ def decode_jwt(token: str):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-def verify_user_from_token(token: str, db: Session):
+def verify_user_from_token(token: str, db):
     """Verifies user from JWT token"""
     is_verified = False
     user = None

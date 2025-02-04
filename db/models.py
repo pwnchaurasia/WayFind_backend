@@ -22,6 +22,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     groups = relationship("GroupMembership", back_populates="user", cascade="all, delete-orphan")
+    user_setting = relationship("UserSetting", uselist=False, back_populates="user")
 
     @hybridproperty
     def is_profile_complete(self):
@@ -57,3 +58,13 @@ class GroupMembership(Base):
     # Relationships
     group = relationship("Group", back_populates="memberships")
     user = relationship("User", back_populates="groups")
+
+
+class UserSetting(Base):
+    __tablename__ =  "user_setting"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    max_group_creation = Column(Integer, default=3)
+
+    user = relationship("User", back_populates="user_setting")
