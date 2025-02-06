@@ -9,7 +9,7 @@ from db.models import User
 from db.schemas import UserProfile, UserResponse
 from utils import app_logger
 from utils.dependencies import get_current_user
-from utils import error_msgs
+from utils import resp_msgs
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -25,7 +25,7 @@ def update_user_profile(profile_data: UserProfile,
         user = db.query(User).filter(User.id == current_user.id).first()
         if not user:
             return JSONResponse(
-                content={ "status": "error", "message": "Use Not found" },
+                content={ "status": "error", "message": resp_msgs.USER_NOT_FOUND },
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
@@ -47,7 +47,7 @@ def update_user_profile(profile_data: UserProfile,
     except Exception as e:
         app_logger.exceptionlogs(f"Error while updating user profile, Error: {e}")
         return JSONResponse(
-            content={"status": "error", "message": error_msgs.STATUS_500_MSG},
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
@@ -62,7 +62,8 @@ def user_profile(db: Session = Depends(get_db), current_user = Depends(get_curre
         )
 
     except Exception as e:
+        app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
         return JSONResponse(
-            content={"status": "error", "message": error_msgs.STATUS_500_MSG},
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

@@ -1,3 +1,5 @@
+from pyexpat.errors import messages
+
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,11 +8,10 @@ from starlette.responses import JSONResponse
 from db.db_conn import get_db
 from db.models import User
 from db.schemas import UserRegistration, OTPVerification
-from utils import app_logger, error_msgs
+from utils import app_logger, resp_msgs
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
 logger = app_logger.createLogger("app")
 
 
@@ -26,15 +27,25 @@ async def request_user(request: UserRegistration):
         if request.phone_number:
             otp = generate_otp(identifier=request.phone_number, otp_type="mobile_verification")
             if not otp:
-                return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"message": "Please try again!!."})
+                return JSONResponse(
+                    content={"status": "error", "message": resp_msgs.STATUS_404_MSG},
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
             # TODO : remove OTP from here. its just temporary for testing
-            return {"msg": "Otp sent to your mobile number. Please verify Using it", "temp_otp": f"{otp}"}
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": "Otp sent to your mobile number. Please verify Using it",
+                    "temp_otp": f"{otp}"
+                },
+                status_code=status.HTTP_201_CREATED
+            )
     except Exception as e:
         app_logger.exceptionlogs(f"Error in register user, Error: {e}")
-        return {
-                "msg": error_msgs.STATUS_500_MSG,
-                "status": status.HTTP_500_INTERNAL_SERVER_ERROR
-        }
+        return JSONResponse(
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @app_logger.functionlogs(log="app")
@@ -52,7 +63,7 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
     if not is_verified:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"status": "error", "message": "Invalid OTP. Please try again"}
+            content={"status": "error", "message": resp_msgs.INVALID_OTP}
         )
 
     try:
@@ -68,14 +79,15 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
         auth_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
         return JSONResponse(
-            content={"access_token": auth_token, "refresh_token": refresh_token, "is_profile_complete": user.is_profile_complete},
+            content={"access_token": auth_token, "refresh_token": refresh_token,
+                     "is_profile_complete": user.is_profile_complete},
             status_code=status.HTTP_200_OK
         )
     except Exception as e:
         app_logger.exceptionlogs(f"Error while finding or creating the user, Error {e}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"status": "error", "message": "Something went wrong."}
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG}
         )
 
 
@@ -93,7 +105,18 @@ def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Sessio
         auth_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
 
-        return {"access_token": auth_token, "refresh_token": refresh_token, "token_type": "bearer"}
+        return JSONResponse(
+            content={
+                "status": "success",
+                "access_token": auth_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer"
+            },
+            status_code=status.HTTP_200_OK
+        )
     except Exception as e:
         app_logger.exceptionlogs(f"Error in refresh access token, Error {e}")
-        return {"access_token": "", "refresh_token": "", "token_type": "bearer"}
+        return JSONResponse(
+            content={ "status":"error","messages": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
