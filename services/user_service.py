@@ -50,3 +50,7 @@ class UserService:
         except Exception as e:
             app_logger.exceptionlogs(f"Error in get_or_create_user_by_phone_number, Error: {e}")
             return None
+
+    @staticmethod
+    def get_user_setting_by_user_id(user_id: int, db: Session):
+        return db.query(UserSetting).filter(UserSetting.user_id == user_id).first()

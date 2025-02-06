@@ -137,13 +137,19 @@ def decode_jwt(token: str):
         exp = payload.get("exp")
 
         if not exp or datetime.now(timezone.utc) > datetime.fromtimestamp(exp, tz=timezone.utc):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+            logger.debug("Token expired. time exceeded")
+            return False, "Token Expired. Please login again.", {}
 
-        return payload
+        return True, "Token valid", payload
+
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+        logger.debug("Token expired")
+        return False, "Token Expired. Please login again.", {}
+
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        logger.debug("Token expired")
+        return False, "Wrong token. Please login gain.", {}
+
 
 @app_logger.functionlogs(log="app")
 def verify_user_from_token(token: str, db):
@@ -151,7 +157,10 @@ def verify_user_from_token(token: str, db):
     is_verified = False
     user = None
     try:
-        payload = decode_jwt(token)
+        is_decoded, msg, payload = decode_jwt(token)
+        if not is_decoded:
+            return is_verified, msg, user
+
         user_id = payload.get("user_id")
         hashed_mobile = payload.get("mobile_number")
 
@@ -159,16 +168,17 @@ def verify_user_from_token(token: str, db):
 
         if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
             logger.debug("not user or mobile hash doesnt match")
-            return is_verified, user
+            return is_verified, "Mobile hash doesn't match", user
         is_verified = True
-
+        return is_verified, "User verified", user
     except Exception as e:
         app_logger.exceptionlogs(f"Error in verify user from token, Error: {e}")
+        return False, "Error occurred", None
 
-    return is_verified, user
 
 
-async def generate_random_group_code():
+
+def generate_random_group_code():
     """
         Generate a 40-character unique string using:
         - A high-precision epoch timestamp (milliseconds).

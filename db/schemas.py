@@ -37,3 +37,7 @@ class UserResponse(BaseModel):
 
 class CreateGroup(BaseModel):
     name: str
+
+class CreateGroupResponse(BaseModel):
+    name: str
+    code: str
