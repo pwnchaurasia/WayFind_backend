@@ -9,7 +9,7 @@ from db.models import User
 from db.schemas import UserProfile, UserResponse
 from utils import app_logger
 from utils.dependencies import get_current_user
-
+from utils import error_msgs
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -47,6 +47,22 @@ def update_user_profile(profile_data: UserProfile,
     except Exception as e:
         app_logger.exceptionlogs(f"Error while updating user profile, Error: {e}")
         return JSONResponse(
-            content={"status": "error", "message": "Something went wrong"},
+            content={"status": "error", "message": error_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@app_logger.functionlogs(log="app")
+@router.get("/me", status_code=status.HTTP_202_ACCEPTED)
+def user_profile(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    try:
+        return JSONResponse(
+            content={"status": "success", "message": "Profile Updated",
+                     "user": UserResponse.model_validate(current_user).model_dump()},
+            status_code=status.HTTP_202_ACCEPTED
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            content={"status": "error", "message": error_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
