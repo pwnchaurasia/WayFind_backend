@@ -23,6 +23,7 @@ class User(Base):
 
     groups = relationship("GroupMembership", back_populates="user", cascade="all, delete-orphan")
     user_setting = relationship("UserSetting", uselist=False, back_populates="user")
+    owned_groups = relationship("Group", back_populates="group_owner", cascade="all, delete-orphan")
 
     @hybridproperty
     def is_profile_complete(self):
@@ -35,13 +36,17 @@ class Group(Base):
     __tablename__ = "groups"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    name = Column(String(40), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)
+    code = Column(String(40), nullable=True, index=True)
+    owner = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
 
     # Relationship to memberships
     memberships = relationship("GroupMembership", back_populates="group", cascade="all, delete-orphan")
+    group_owner = relationship("User", back_populates="owned_groups")
+
 
 
 class GroupMembership(Base):

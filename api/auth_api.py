@@ -8,6 +8,7 @@ from starlette.responses import JSONResponse
 from db.db_conn import get_db
 from db.models import User
 from db.schemas import UserRegistration, OTPVerification
+from services.user_service import UserService
 from utils import app_logger, resp_msgs
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
 
@@ -67,15 +68,15 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
         )
 
     try:
-        user = db.query(User).filter(User.phone_number == request.phone_number).first()
+        user = UserService.create_user_by_phone_number(phone_number=request.phone_number, db=db)
         if not user:
-            user = User(phone_number=request.phone_number, is_phone_verified=True, is_active=True)
-        else:
-            user.is_phone_verified = True
-            user.is_active = True
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+            logger.debug(f"Not able to create user get_or_create_user_by_phone_number")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"status": "error", "message": resp_msgs.INVALID_OTP}
+            )
+
+
         auth_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
         return JSONResponse(
@@ -94,6 +95,7 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp")
 
 @router.post("/refresh")
+@app_logger.functionlogs(log="app")
 def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Verify refresh token and issue new access token and refresh token"""
     try:

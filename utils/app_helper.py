@@ -1,3 +1,6 @@
+import time
+import secrets
+import string
 import os
 import hashlib
 import hmac
@@ -8,10 +11,9 @@ from fastapi.responses import JSONResponse
 
 import jwt
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.orm import Session
 
-from db.db_conn import get_db
 from db.models import User
+from services.user_service import UserService
 from utils import app_logger
 from utils.redis_helper import RedisHelper
 
@@ -20,6 +22,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
 REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 
+logger = app_logger.createLogger("app")
 
 
 # def get_current_user():
@@ -103,6 +106,7 @@ def hash_mobile_number(mobile_number):
     return hmac.new(hash_secret.encode(), str(mobile_number).encode(), hashlib.sha256).hexdigest()
 
 
+@app_logger.functionlogs(log="app")
 def create_auth_token(user):
     """Generates an access token with expiration."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
@@ -113,6 +117,7 @@ def create_auth_token(user):
     }
     return jwt.encode(data, SECRET_KEY, algorithm="HS256")
 
+@app_logger.functionlogs(log="app")
 def create_refresh_token(user):
     """Generates a refresh token with longer expiration."""
     expire = datetime.now(timezone.utc) + timedelta(days=int(REFRESH_TOKEN_EXPIRE_DAYS))
@@ -124,6 +129,7 @@ def create_refresh_token(user):
 
     return jwt.encode(data, SECRET_KEY, algorithm="HS256")
 
+@app_logger.functionlogs(log="app")
 def decode_jwt(token: str):
     """Decodes and verifies JWT token"""
     try:
@@ -139,7 +145,7 @@ def decode_jwt(token: str):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-
+@app_logger.functionlogs(log="app")
 def verify_user_from_token(token: str, db):
     """Verifies user from JWT token"""
     is_verified = False
@@ -149,13 +155,27 @@ def verify_user_from_token(token: str, db):
         user_id = payload.get("user_id")
         hashed_mobile = payload.get("mobile_number")
 
-        user = db.query(User).filter(User.id == user_id).first()
+        user = UserService.get_user_by_id(int(user_id), db)
 
         if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
-            raise HTTPException(status_code=401, detail="Invalid user authentication")
+            logger.debug("not user or mobile hash doesnt match")
+            return is_verified, user
         is_verified = True
 
     except Exception as e:
         app_logger.exceptionlogs(f"Error in verify user from token, Error: {e}")
 
     return is_verified, user
+
+
+async def generate_random_group_code():
+    """
+        Generate a 40-character unique string using:
+        - A high-precision epoch timestamp (milliseconds).
+        - Random characters for added randomness.
+        - Ensures uniqueness without DB checks.
+        """
+    timestamp = str(int(time.time() * 1000))  # Get epoch time in milliseconds
+    random_part = ''.join(secrets.choice(string.ascii_letters) for _ in range(40 - len(timestamp)))
+
+    return random_part + timestamp  # Ensures uniqueness via timestamp

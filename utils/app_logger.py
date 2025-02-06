@@ -1,3 +1,4 @@
+import asyncio
 import os
 import pathlib
 import logging
@@ -97,7 +98,19 @@ def functionlogs(log="app"):
             logger = logging.getLogger(log)
             init_time = datetime.now(timezone.utc)
             func_str = "{}.{}".format(function.__module__, function.__qualname__)
-            user = "user={}".format(get_current_user())
+            current_user = None
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    user_data = loop.create_task(get_current_user())
+                else:
+                    user_data = asyncio.run(get_current_user())
+                logger.debug("*********")
+                logger.debug(user_data)
+                current_user = user_data if isinstance(user_data, dict) else None
+            except Exception as e:
+                print(f"Eeee, {e}")
+            user = "user={}".format(current_user)
             try:
                 response = function(*args, **kwargs)
             except Exception as error:
