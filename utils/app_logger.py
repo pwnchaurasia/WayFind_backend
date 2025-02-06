@@ -94,43 +94,29 @@ def functionlogs(log="app"):
     def wrap(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
-            from utils.dependencies import get_current_user
             logger = logging.getLogger(log)
             init_time = datetime.now(timezone.utc)
             func_str = "{}.{}".format(function.__module__, function.__qualname__)
-            current_user = None
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    user_data = loop.create_task(get_current_user())
-                else:
-                    user_data = asyncio.run(get_current_user())
-                logger.debug("*********")
-                logger.debug(user_data)
-                current_user = user_data if isinstance(user_data, dict) else None
-            except Exception as e:
-                print(f"Eeee, {e}")
-            user = "user={}".format(current_user)
             try:
                 response = function(*args, **kwargs)
             except Exception as error:
-                log_enter_text = "[core][{0}][ENTER] {1}: with input={2} kwargs={3}".format(
-                    func_str, str(user), args, kwargs)
+                log_enter_text = "[core][{0}][ENTER] with input={1} kwargs={2}".format(
+                    func_str, args, kwargs)
                 logger.debug(log_enter_text)
 
-                log_error_text = "[core][{0}][ERROR] {1}: error={2}".format(func_str, str(user), str(error))
+                log_error_text = "[core][{0}][ERROR] error={1}".format(func_str, str(error))
                 logger.error(log_error_text)
                 raise error
 
             end_time = datetime.now(timezone.utc)
             time_taken = end_time - init_time
             try:
-                log_enter_text = "[core][{0}][ENTER] {1}: with input={2} kwargs={3}".format(
-                    func_str, str(user), args, kwargs
+                log_enter_text = "[core][{0}][ENTER] with input={1} kwargs={2}".format(
+                    func_str, args, kwargs
                 )
                 logger.debug(log_enter_text)
-                log_exit_text = "[core][{0}][EXIT] {1}: response={2} in {3} seconds".format(
-                    func_str, str(user), response, time_taken)
+                log_exit_text = "[core][{0}][EXIT] response={1} in {2} seconds".format(
+                    func_str, response, time_taken)
                 logger.debug(log_exit_text)
             except:
                 pass

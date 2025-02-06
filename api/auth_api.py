@@ -94,8 +94,8 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp")
 
-@router.post("/refresh")
 @app_logger.functionlogs(log="app")
+@router.post("/refresh")
 def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Verify refresh token and issue new access token and refresh token"""
     try:
