@@ -23,7 +23,6 @@ def create_group(request: Request, group_data: CreateGroup,
                  db: Session = Depends(get_db),
                  current_user = Depends(get_current_user)):
     try:
-        # TODO check, if user has reach max group creation limit
         is_valid = Validator.validate_group_creation(user_id=current_user.id, db=db)
         if not is_valid:
             logger.debug(f"User {current_user} has reached max group creation.")
@@ -42,16 +41,52 @@ def create_group(request: Request, group_data: CreateGroup,
         logger.debug(f"User {group_member.user_id} added to group, {group.name} {group.id}")
         return JSONResponse(
             content={"status": "success",
-                     "message": resp_msgs.GROUP_NOT_CREATED,
+                     "message": resp_msgs.GROUP_CREATED,
                      "data": CreateGroupResponse.model_validate(group).to_response(request=request)},
-            status_code=status.HTTP_400_BAD_REQUEST
+            status_code=status.HTTP_201_CREATED
         )
     except Exception as e:
         app_logger.exceptionlogs(f"Error creating group, Error: {e}")
-        return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @app_logger.functionlogs(log="app")
 @router.post("/join/{code}", name="join_group_with_code")
-def join_group_with_code(code: str):
-    pass
+def join_group_with_code(code: str, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
+    logger.debug(f"code: {code}, user: {current_user}")
+    try:
+        # Todo: fetch group from code
+        group = GroupService.fetch_group_from_code(db=db, code=code)
+        if not group:
+            return JSONResponse(content={"status": "error", "message": resp_msgs.INVALID_JOIN_LINK},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+
+        # Todo: User already a member of the group. return 200 and open the group
+
+        already_a_member = Validator.user_already_in_group(db=db,
+                                                           user_id=current_user.id,
+                                                           group_id=group.id)
+        if already_a_member:
+            return JSONResponse(content={"status": "error", "message": resp_msgs.ALREADY_MEMBER_OF_GROUP},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+
+        user_added, group_member = GroupService.add_user_to_group(db=db,
+                                                                  user_id=current_user.id,
+                                                                  group_id=group.id,
+                                                                  role=GroupUserType.MEMBER)
+        logger.debug(f"User {group_member.user_id} added to group, {group.name} {group.id} "
+                     f": group_member {group_member}")
+
+        if not user_added:
+            return JSONResponse(content={"status": "error", "message": resp_msgs.INVALID_JOIN_LINK},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+
+        return JSONResponse(
+            content={"status": "success", "message": resp_msgs.ADDED_TO_GROUP},
+        status_code=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error joining group via join code, Error: {e}")
+        return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

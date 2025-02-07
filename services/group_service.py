@@ -36,6 +36,18 @@ class GroupService:
         return db.query(Group).filter(Group.owner == user_id).all()
 
     @staticmethod
+    def fetch_group_from_code(db: Session, code):
+        return db.query(Group).filter(Group.code == code).first()
+
+    @staticmethod
+    def user_already_member_of_group(db:Session, user_id: int, group_id:int):
+        return db.query(GroupMembership).filter(
+            GroupMembership.user_id == user_id,
+            GroupMembership.group_id == group_id
+        ).first()
+
+
+    @staticmethod
     def add_user_to_group(db:Session, user_id: int, group_id: int, role=GroupUserType.MEMBER):
         try:
             group_member = GroupMembership(user_id=user_id, group_id=group_id, role=role)

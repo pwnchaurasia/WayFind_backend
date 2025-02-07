@@ -25,6 +25,9 @@ class User(Base):
     user_setting = relationship("UserSetting", uselist=False, back_populates="user")
     owned_groups = relationship("Group", back_populates="group_owner", cascade="all, delete-orphan")
 
+    def __repr__(self):
+        return f"User -> {self.id} Name: {self.name} is active: {self.is_active}"
+
     @hybridproperty
     def is_profile_complete(self):
         if not self.name or not self.email or not self.profile_picture_url:
@@ -49,7 +52,6 @@ class Group(Base):
 
     def __repr__(self):
         return f"Group -> id:{self.id} name: {self.name} owner: {self.owner} owner_name: {self.group_owner.name if self.group_owner else None}"
-
 
 
 class GroupMembership(Base):

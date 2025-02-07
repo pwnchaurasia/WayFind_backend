@@ -12,7 +12,7 @@ class Validator:
 
     @staticmethod
     @app_logger.functionlogs(log="log")
-    def validate_group_creation(user_id:int, db: Session):
+    def validate_group_creation(db: Session, user_id:int):
         try:
             user_setting = UserService.get_user_setting_by_user_id(user_id=user_id, db=db)
             if not user_setting:
@@ -27,3 +27,11 @@ class Validator:
         except Exception as e:
             app_logger.exceptionlogs(f"Error in validate_group_creation Error: {e} for user {user_id}")
             return False
+
+    @staticmethod
+    def user_already_in_group(db: Session, user_id, group_id):
+        try:
+            return GroupService.user_already_member_of_group(db=db, user_id=user_id, group_id=group_id)
+        except Exception as e:
+            app_logger.exceptionlogs(f"User already member of group {e}")
+            return True

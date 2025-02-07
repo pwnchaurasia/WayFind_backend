@@ -57,5 +57,5 @@ class CreateGroupResponse(BaseModel):
             "id": self.id,
             "name": self.name,
             "owner": self.owner,
-            "join_url": self.generate_group_join_url(request, self.code)
+            "join_url": CreateGroupResponse.generate_group_join_url(request, self.code)
         }
