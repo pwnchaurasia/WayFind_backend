@@ -1,12 +1,11 @@
-from fastapi import HTTPException
-
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, Request
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import User
-from db.schemas import UserProfile, UserResponse
+from db.schemas import UserProfile, UserResponse, GroupResponse
+from services.group_service import GroupService
 from services.user_service import UserService
 from utils import app_logger
 from utils.dependencies import get_current_user
@@ -60,6 +59,23 @@ def user_profile(current_user = Depends(get_current_user)):
             status_code=status.HTTP_202_ACCEPTED
         )
 
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@router.get("/groups")
+def user_groups(request:Request, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    try:
+        user_group_memberships = GroupService.fetch_user_groups(db=db, user_id=current_user.id)
+
+        groups = [GroupResponse.model_validate(membership.group).to_response(request=request) for membership in user_group_memberships]
+        return JSONResponse(
+            content={"status": "error", "message": "User groups", "data": groups},
+            status_code=status.HTTP_200_OK
+        )
     except Exception as e:
         app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
         return JSONResponse(

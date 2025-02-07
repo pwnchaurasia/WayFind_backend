@@ -51,9 +51,9 @@ class UserResponse(BaseModel):
 class CreateGroup(BaseModel):
     name: str
 
-class CreateGroupResponse(BaseModel):
-    id: int
-    owner: int
+class GroupResponse(BaseModel):
+    id: UUID
+    owner: UUID
     name: str
     code: str
 
@@ -67,8 +67,8 @@ class CreateGroupResponse(BaseModel):
 
     def to_response(self, request:Request) -> dict:
         return {
-            "id": self.id,
+            "id": str(self.id),
             "name": self.name,
-            "owner": self.owner,
-            "join_url": CreateGroupResponse.generate_group_join_url(request, self.code)
+            "owner_id": str(self.owner),
+            "join_url": GroupResponse.generate_group_join_url(request, self.code)
         }

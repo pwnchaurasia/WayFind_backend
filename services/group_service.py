@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from db.models import Group, GroupMembership
 from db.schemas import CreateGroup
@@ -50,7 +50,7 @@ class GroupService:
             return False, None
 
     @staticmethod
-    def fetch_user_groups(user_id: int, db: Session):
+    def fetch_user_groups_created_by_user(user_id: int, db: Session):
         return db.query(Group).filter(Group.owner == user_id).all()
 
     @staticmethod
@@ -77,3 +77,31 @@ class GroupService:
         except Exception as e:
             app_logger.exceptionlogs(f"Error in add_user_to_group, Error: {e}")
             return False, None
+
+    @staticmethod
+    def update_group_join_link(db: Session, group_id: int):
+        try:
+            group = GroupService.get_group_by_id(db=db, group_id=group_id)
+            if not group:
+                logger.debug(f"Group not found for group id {group_id}")
+                return False, None
+            group.code = helper.generate_random_group_code()
+            db.add(group)
+            db.commit()
+            db.refresh(group)
+            return True, group
+        except Exception as e:
+            app_logger.exceptionlogs(f"Error while updating group join link Error, {e}")
+            return False, None
+
+    @staticmethod
+    def fetch_user_groups(db: Session, user_id: str):
+        try:
+            memberships = db.query(GroupMembership).options(joinedload(GroupMembership.group)).filter(
+                GroupMembership.user_id == user_id,
+                GroupMembership.is_active == True
+            ).all()
+            return memberships
+        except Exception as e:
+            app_logger.exceptionlogs(f"Error while updating group join link Error, {e}")
+            return None

@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import Group
-from db.schemas import CreateGroup, CreateGroupResponse
+from db.schemas import CreateGroup, GroupResponse
 from services.group_service import GroupService
 from utils import app_logger, resp_msgs, GroupUserType
 from utils.dependencies import get_current_user
@@ -42,7 +42,7 @@ def create_group(request: Request, group_data: CreateGroup,
         return JSONResponse(
             content={"status": "success",
                      "message": resp_msgs.GROUP_CREATED,
-                     "data": CreateGroupResponse.model_validate(group).to_response(request=request)},
+                     "data": GroupResponse.model_validate(group).to_response(request=request)},
             status_code=status.HTTP_201_CREATED
         )
     except Exception as e:
@@ -53,7 +53,7 @@ def create_group(request: Request, group_data: CreateGroup,
 
 @app_logger.functionlogs(log="app")
 @router.post("/join/{code}", name="join_group_with_code")
-def join_group_with_code(code: str, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
+def join_group_with_code(request:Request, code: str, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
     logger.debug(f"code: {code}, user: {current_user}")
     try:
         # Todo: fetch group from code
@@ -62,14 +62,15 @@ def join_group_with_code(code: str, db:Session = Depends(get_db), current_user =
             return JSONResponse(content={"status": "error", "message": resp_msgs.INVALID_JOIN_LINK},
                                 status_code=status.HTTP_400_BAD_REQUEST)
 
-        # Todo: User already a member of the group. return 200 and open the group
-
         already_a_member = Validator.user_already_in_group(db=db,
                                                            user_id=current_user.id,
                                                            group_id=group.id)
         if already_a_member:
-            return JSONResponse(content={"status": "error", "message": resp_msgs.ALREADY_MEMBER_OF_GROUP},
-                                status_code=status.HTTP_400_BAD_REQUEST)
+            return JSONResponse(
+                content={"status": "success",
+                         "message": resp_msgs.ALREADY_MEMBER_OF_GROUP,
+                         "data": GroupResponse.model_validate(group).to_response(request=request)},
+                                status_code=status.HTTP_200_OK)
 
         user_added, group_member = GroupService.add_user_to_group(db=db,
                                                                   user_id=current_user.id,
@@ -92,12 +93,28 @@ def join_group_with_code(code: str, db:Session = Depends(get_db), current_user =
                             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.put("/groups/{group_id}/refresh-link", status_code=status.HTTP_200_OK, )
-def refresh_group_join_link(request: Request, group_id: int,
+@router.patch("/{group_id}/refresh-join-link", status_code=status.HTTP_200_OK, )
+def refresh_group_join_link(request: Request, group_id: str,
                             db: Session = Depends(get_db),
                             current_user = Depends(get_current_user)):
     try:
         group = GroupService.get_group_by_id(db=db, group_id=group_id)
-        Validator.can_update_join_link(db=db, user_id=current_user.id, group_id=group_id)
+        can_update_join_link = Validator.can_update_join_link(db=db, user_id=current_user.id, group_id=group_id)
+        if not can_update_join_link:
+            return JSONResponse(content={"status": "error", "message": resp_msgs.CANT_UPDATE_GROUP_JOIN_LINK},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+
+        is_updated , group = GroupService.update_group_join_link(db=db, group_id=group.id)
+        if not is_updated:
+            return JSONResponse(content={"status": "error", "message": resp_msgs.CANT_UPDATE_GROUP_JOIN_LINK},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+
+        return JSONResponse(content={"status": "success",
+                                     "message": resp_msgs.GROUP_JOIN_LINK_UPDATED,
+                                     "data": GroupResponse.model_validate(group).to_response(request=request)},
+                                status_code=status.HTTP_202_ACCEPTED)
     except Exception as e:
         app_logger.exceptionlogs(f"Error in refresh_group_join_link, Error: {e}")
+        return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
