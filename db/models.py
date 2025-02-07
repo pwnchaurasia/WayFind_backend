@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.util import hybridproperty
 
 from utils import Base
-
+from utils.enums import GroupUserType
 
 
 class User(Base):
@@ -47,6 +47,9 @@ class Group(Base):
     memberships = relationship("GroupMembership", back_populates="group", cascade="all, delete-orphan")
     group_owner = relationship("User", back_populates="owned_groups")
 
+    def __repr__(self):
+        return f"Group -> id:{self.id} name: {self.name} owner: {self.owner} owner_name: {self.group_owner.name if self.group_owner else None}"
+
 
 
 class GroupMembership(Base):
@@ -55,7 +58,7 @@ class GroupMembership(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"), index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
-    role = Column(String, default="member")  # e.g., "owner", "admin", "member"
+    role = Column(Enum(GroupUserType), default=GroupUserType.ADMIN, nullable=False)  # e.g., "owner", "admin", "member"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

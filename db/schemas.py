@@ -1,5 +1,5 @@
 from typing import Optional
-
+from fastapi import  Request
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
 
 
@@ -39,5 +39,23 @@ class CreateGroup(BaseModel):
     name: str
 
 class CreateGroupResponse(BaseModel):
+    id: int
+    owner: int
     name: str
     code: str
+
+    class Config:
+        from_attributes = True
+
+    @staticmethod
+    def generate_group_join_url(request: Request, code: str) -> str:
+        """Generates a full join URL dynamically."""
+        return str(request.url_for("join_group_with_code", code=code))
+
+    def to_response(self, request:Request) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "owner": self.owner,
+            "join_url": self.generate_group_join_url(request, self.code)
+        }
