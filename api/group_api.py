@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import Group
-from db.schemas import CreateGroup, GroupResponse
+from db.schemas import CreateGroup, GroupResponse, UserResponse
 from services.group_service import GroupService
 from utils import app_logger, resp_msgs, GroupUserType
 from utils.dependencies import get_current_user
@@ -118,3 +118,17 @@ def refresh_group_join_link(request: Request, group_id: str,
         return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
                             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@router.get("/{group_id}/users")
+def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_db)):
+    try:
+        group_membership = GroupService.fetch_group_users(db=db, group_id=group_id)
+
+        users = [UserResponse.model_validate(membership.user).model_dump(mode="json") for membership in
+                  group_membership]
+        return JSONResponse(
+            content={"status": "error", "message": "User groups", "data": users},
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in fetch group users {e}")

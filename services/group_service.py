@@ -105,3 +105,15 @@ class GroupService:
         except Exception as e:
             app_logger.exceptionlogs(f"Error while updating group join link Error, {e}")
             return None
+
+    @staticmethod
+    def fetch_group_users(db: Session, group_id: str):
+        try:
+            memberships = db.query(GroupMembership).options(joinedload(GroupMembership.user)).filter(
+                GroupMembership.group_id == group_id,
+                GroupMembership.is_active == True
+            ).all()
+            return memberships
+        except Exception as e:
+            app_logger.exceptionlogs(f"Error in fetch_group_users, Error: {e}")
+            return None
