@@ -111,7 +111,7 @@ def create_auth_token(user):
     """Generates an access token with expiration."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
     data = {
-        'user_id': user.id,
+        'user_id': str(user.id),
         'mobile_number': hash_mobile_number(user.phone_number),
         "exp": expire
     }
@@ -122,7 +122,7 @@ def create_refresh_token(user):
     """Generates a refresh token with longer expiration."""
     expire = datetime.now(timezone.utc) + timedelta(days=int(REFRESH_TOKEN_EXPIRE_DAYS))
     data = {
-        'user_id': user.id,
+        'user_id': str(user.id),
         'mobile_number': hash_mobile_number(user.phone_number),
         "exp": expire
     }
@@ -164,7 +164,7 @@ def verify_user_from_token(token: str, db):
         user_id = payload.get("user_id")
         hashed_mobile = payload.get("mobile_number")
 
-        user = UserService.get_user_by_id(int(user_id), db)
+        user = UserService.get_user_by_id(user_id, db)
 
         if not user or hash_mobile_number(user.phone_number) != hashed_mobile:
             logger.debug("not user or mobile hash doesnt match")

@@ -1,4 +1,6 @@
 from typing import Optional
+from uuid import UUID
+
 from fastapi import  Request
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
 
@@ -24,7 +26,7 @@ class UserProfile(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: UUID
     name: Optional[str]
     email: Optional[EmailStr]
     phone_number: Optional[str]
@@ -33,6 +35,17 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        # json_encoders = {UUID: str}
+
+    # def to_response(self):
+    #     return {
+    #         "id": str(self.id),
+    #         "name": self.name,
+    #         "email": self.email,
+    #         "phone_number": self.phone_number,
+    #         "is_active": self.is_active,
+    #         "profile_picture_url": self.profile_picture_url
+    #     }
 
 
 class CreateGroup(BaseModel):

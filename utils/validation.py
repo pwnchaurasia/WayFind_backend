@@ -29,9 +29,28 @@ class Validator:
             return False
 
     @staticmethod
-    def user_already_in_group(db: Session, user_id, group_id):
+    def user_already_in_group(db: Session, user_id:int, group_id: int):
         try:
             return GroupService.user_already_member_of_group(db=db, user_id=user_id, group_id=group_id)
         except Exception as e:
             app_logger.exceptionlogs(f"User already member of group {e}")
             return True
+
+    @staticmethod
+    def is_group_owner(db: Session, user_id: int, group_id: int) -> bool:
+        group = GroupService.get_group_by_id(db=db, group_id=group_id)
+        if group and group.owner == user_id:
+            return True
+        return False
+
+    @staticmethod
+    def can_update_join_link(db: Session, user_id: int, group_id: int):
+        try:
+            group_admins = GroupService.is_user_group_admin(db=db, user_id=user_id, group_id=group_id)
+            if not group_admins:
+                return False
+            return True
+        except Exception as e:
+            app_logger.exceptionlogs(f"Error in can_update_join_link {e}")
+            return False
+

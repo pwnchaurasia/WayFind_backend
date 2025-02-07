@@ -1,7 +1,10 @@
+import uuid
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.util import hybridproperty
+
+from sqlalchemy.dialects.postgresql import UUID
 
 from utils import Base
 from utils.enums import GroupUserType
@@ -10,7 +13,7 @@ from utils.enums import GroupUserType
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     name = Column(String, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     phone_number = Column(String, unique=True, index=True)
@@ -38,13 +41,13 @@ class User(Base):
 class Group(Base):
     __tablename__ = "groups"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     name = Column(String(40), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)
     code = Column(String(40), nullable=True, index=True)
-    owner = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    owner = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
 
     # Relationship to memberships
     memberships = relationship("GroupMembership", back_populates="group", cascade="all, delete-orphan")
@@ -57,9 +60,9 @@ class Group(Base):
 class GroupMembership(Base):
     __tablename__ = "group_memberships"
 
-    id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id"), index=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), index=True, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True, nullable=False)
     role = Column(Enum(GroupUserType), default=GroupUserType.ADMIN, nullable=False)  # e.g., "owner", "admin", "member"
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -73,8 +76,8 @@ class GroupMembership(Base):
 class UserSetting(Base):
     __tablename__ =  "user_setting"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     max_group_creation = Column(Integer, default=3)
 
     user = relationship("User", back_populates="user_setting")

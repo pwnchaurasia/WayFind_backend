@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from db.models import User, UserSetting
+from db.schemas import UserProfile
 from utils import app_logger
 
 
@@ -29,6 +30,23 @@ class UserService:
         else:
             user_setting.max_group_creation = 3
             db.add(user_setting)
+            db.commit()
+
+    @staticmethod
+    def update_user_data(db: Session, user: User, user_profile_data: UserProfile):
+        try:
+            update_fields = user_profile_data.model_dump(exclude_unset=True)
+
+            # Update fields dynamically
+            for key, value in update_fields.items():
+                setattr(user, key, value)
+
+            db.commit()
+            db.refresh(user)  # Refresh to get updated data
+            return user
+        except Exception as e:
+            app_logger.exceptionlogs(f"Error in update_user_data {e}")
+            return None
 
     @staticmethod
     def create_user_by_phone_number(phone_number: str, db: Session):

@@ -90,3 +90,14 @@ def join_group_with_code(code: str, db:Session = Depends(get_db), current_user =
         app_logger.exceptionlogs(f"Error joining group via join code, Error: {e}")
         return JSONResponse(content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
                             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.put("/groups/{group_id}/refresh-link", status_code=status.HTTP_200_OK, )
+def refresh_group_join_link(request: Request, group_id: int,
+                            db: Session = Depends(get_db),
+                            current_user = Depends(get_current_user)):
+    try:
+        group = GroupService.get_group_by_id(db=db, group_id=group_id)
+        Validator.can_update_join_link(db=db, user_id=current_user.id, group_id=group_id)
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in refresh_group_join_link, Error: {e}")
