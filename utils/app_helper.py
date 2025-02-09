@@ -25,14 +25,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
 logger = app_logger.createLogger("app")
 
 
-# def get_current_user():
-#     """Retrieve authenticated user from context"""
-#     user = user_context.get()
-#     if not user:
-#         raise Exception("User not authenticated")
-#     return user
-#
-
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     body = await request.body()
     errors = []

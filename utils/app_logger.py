@@ -53,6 +53,15 @@ LOGGING_CONFIG = {
             "interval": 1,
             "backupCount": 7,
         },
+        "websocket": {
+            "level": "DEBUG",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "formatter": "verbose",
+            "filename": os.path.join(LOG_DIR, "websocket.log"),
+            "when": "W4",
+            "interval": 1,
+            "backupCount": 7,
+        }
     },
     "loggers": {
         "django.request": {
@@ -62,6 +71,11 @@ LOGGING_CONFIG = {
         },
         "app":{
             "handlers": ["app"],
+            "level": "DEBUG",
+            "propagate": False
+        },
+        "websocket":{
+            "handlers": ["websocket"],
             "level": "DEBUG",
             "propagate": False
         }

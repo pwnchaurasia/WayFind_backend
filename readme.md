@@ -46,9 +46,9 @@ openssl rand -hex 32
 - [X] login page
 - [X] Signup
 - [X] Update User Profile,
-- [] Create Group
-- [] Share Link of Group
-- [] People Can Join Via Group Link. 
+- [X] Create Group
+- [X] Share Link of Group
+- [X] People Can Join Via Group Link. 
 - [] Group Settings, Max can have 10 People in a Group
 - [] Render Map
 - [] One user can be in max one group at a time. Upgrade to be in multiple group

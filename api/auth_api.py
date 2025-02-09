@@ -11,15 +11,12 @@ from db.schemas import UserRegistration, OTPVerification
 from services.user_service import UserService
 from utils import app_logger, resp_msgs
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
+from starlette.templating import Jinja2Templates
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = app_logger.createLogger("app")
 
-
-
-@router.get("/", name="root")
-async def root():
-    return {"message": "Hello World"}
 
 @app_logger.functionlogs(log="app")
 @router.post("/request-otp", status_code=status.HTTP_200_OK, name="request-otp")
