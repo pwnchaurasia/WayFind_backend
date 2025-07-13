@@ -77,9 +77,12 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
         auth_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
         return JSONResponse(
-            content={"access_token": auth_token, "refresh_token": refresh_token,
-                     "is_profile_complete": user.is_profile_complete},
-            status_code=status.HTTP_200_OK
+            content={
+                "access_token": auth_token,
+                "refresh_token": refresh_token,
+                "is_profile_complete": user.is_profile_complete
+            },
+            status_code=status.HTTP_201_CREATED
         )
     except Exception as e:
         app_logger.exceptionlogs(f"Error while finding or creating the user, Error {e}")
@@ -92,7 +95,7 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp")
 
 @app_logger.functionlogs(log="app")
-@router.post("/refresh")
+@router.post("/refresh-token")
 def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """Verify refresh token and issue new access token and refresh token"""
     try:
@@ -117,5 +120,35 @@ def refresh_access_token(refresh_token: str = Depends(oauth2_scheme), db: Sessio
         app_logger.exceptionlogs(f"Error in refresh access token, Error {e}")
         return JSONResponse(
             content={ "status":"error","messages": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@app_logger.functionlogs(log="app")
+@router.post("/verify")
+def verify_access_token(access_token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Verify refresh token and issue new access token and refresh token"""
+    try:
+        is_verified, msg, user = verify_user_from_token(access_token, db=db)
+        if not is_verified:
+            return JSONResponse(content={"status": "error", "message": msg}, status_code=status.HTTP_401_UNAUTHORIZED)
+
+        # sending a fresh access and refresh token so that, user never logs out.
+        auth_token = create_auth_token(user)
+        refresh_token = create_refresh_token(user)
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "access_token": auth_token,
+                "refresh_token": refresh_token,
+                "token_type": "bearer"
+            },
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in refresh access token, Error {e}")
+        return JSONResponse(
+            content={"status": "error", "messages": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

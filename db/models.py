@@ -81,3 +81,22 @@ class UserSetting(Base):
     max_group_creation = Column(Integer, default=3)
 
     user = relationship("User", back_populates="user_setting")
+
+
+
+class DeviceInfo(Base):
+    __tablename__ = "device_infos"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    device_id = Column(String(150), nullable=True, index=True)
+    device_model = Column(String(150), nullable=True, index=True)
+    device_brand = Column(String(150), nullable=True, index=True)
+    os_name = Column(String(150), nullable=True, index=True)
+    os_version = Column(String(150), nullable=True, index=True)
+    app_version = Column(String(150), nullable=True, index=True)
+    screen_width = Column(String(150), nullable=True, index=True)
+    screen_height = Column(String(150), nullable=True, index=True)
+    timezone = Column(String(150), nullable=True, index=True)
+    locale = Column(String(150), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

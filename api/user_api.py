@@ -37,8 +37,10 @@ def update_user_profile(user_profile_data: UserProfile,
             )
 
         return JSONResponse(
-            content={"status": "success", "message": "Profile Updated",
-                     "user": UserResponse.model_validate(user).model_dump(mode="json")},
+            content={
+                "status": "success",
+                "message": "Profile Updated",
+                "user": UserResponse.model_validate(user).model_dump(mode="json")},
             status_code=status.HTTP_202_ACCEPTED
         )
 
@@ -54,9 +56,11 @@ def update_user_profile(user_profile_data: UserProfile,
 def user_profile(current_user = Depends(get_current_user)):
     try:
         return JSONResponse(
-            content={"status": "success", "message": "Profile Updated",
-                     "user": UserResponse.model_validate(current_user).model_dump(mode="json")},
-            status_code=status.HTTP_202_ACCEPTED
+            content={
+                "status": "success",
+                "message": "Current User",
+                "user": UserResponse.model_validate(current_user).model_dump(mode="json")},
+            status_code=status.HTTP_200_OK
         )
 
     except Exception as e:

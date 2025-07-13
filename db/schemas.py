@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import  Request
-from pydantic import BaseModel, Field, EmailStr, HttpUrl
+from pydantic import BaseModel, Field, EmailStr, HttpUrl, computed_field
 
 
 class UserRegistration(BaseModel):
@@ -22,7 +22,7 @@ class UserProfile(BaseModel):
     profile_picture_url: Optional[HttpUrl] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserResponse(BaseModel):
@@ -33,19 +33,14 @@ class UserResponse(BaseModel):
     is_active: bool
     profile_picture_url: Optional[HttpUrl]
 
+    @computed_field
+    @property
+    def is_profile_complete(self) -> bool:
+        ## at least two fields are there then it's true
+        return sum(bool(field) for field in [self.name, self.email, self.profile_picture_url]) >= 2
+
     class Config:
         from_attributes = True
-        # json_encoders = {UUID: str}
-
-    # def to_response(self):
-    #     return {
-    #         "id": str(self.id),
-    #         "name": self.name,
-    #         "email": self.email,
-    #         "phone_number": self.phone_number,
-    #         "is_active": self.is_active,
-    #         "profile_picture_url": self.profile_picture_url
-    #     }
 
 
 class CreateGroup(BaseModel):

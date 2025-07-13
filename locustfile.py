@@ -7,14 +7,14 @@ def run_async(coro):
     """Runs an async coroutine safely in a new event loop if needed"""
     try:
         loop = asyncio.get_running_loop()
-    except RuntimeError as e:  # ✅ No running loop → create a new one
+    except RuntimeError as e:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     return loop.create_task(coro)
 
 class WebSocketUser(HttpUser):
     wait_time = between(1, 5)
-    host = "ws://127.0.0.1:8001"  # ✅ Dummy host to satisfy Locust
+    host = "ws://127.0.0.1:8001"
 
     @task
     def send_message(self):
