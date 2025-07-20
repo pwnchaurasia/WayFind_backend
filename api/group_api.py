@@ -127,7 +127,7 @@ def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_
         users = [UserResponse.model_validate(membership.user).model_dump(mode="json") for membership in
                   group_membership]
         return JSONResponse(
-            content={"status": "error", "message": "User groups", "data": users},
+            content={"status": "error", "message": "User groups", "users": users},
             status_code=status.HTTP_200_OK
         )
     except Exception as e:
