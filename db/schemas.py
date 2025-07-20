@@ -51,6 +51,7 @@ class GroupResponse(BaseModel):
     owner: UUID
     name: str
     code: str
+    members_count: int
 
     class Config:
         from_attributes = True
@@ -65,5 +66,6 @@ class GroupResponse(BaseModel):
             "id": str(self.id),
             "name": self.name,
             "owner_id": str(self.owner),
-            "join_url": GroupResponse.generate_group_join_url(request, self.code)
+            "join_url": GroupResponse.generate_group_join_url(request, self.code),
+            "members_count": self.members_count,
         }

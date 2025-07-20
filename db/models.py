@@ -5,7 +5,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.util import hybridproperty
 
 from sqlalchemy.dialects.postgresql import UUID
-
+from sqlalchemy.orm import column_property
+from sqlalchemy import select, func
 from utils import Base
 from utils.enums import GroupUserType
 
@@ -37,6 +38,21 @@ class User(Base):
             return False
         return True
 
+class GroupMembership(Base):
+    __tablename__ = "group_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), index=True, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True, nullable=False)
+    role = Column(Enum(GroupUserType), default=GroupUserType.ADMIN, nullable=False)  # e.g., "owner", "admin", "member"
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    group = relationship("Group", back_populates="memberships")
+    user = relationship("User", back_populates="groups")
+
 
 class Group(Base):
     __tablename__ = "groups"
@@ -56,21 +72,14 @@ class Group(Base):
     def __repr__(self):
         return f"Group -> id:{self.id} name: {self.name} owner: {self.owner} owner_name: {self.group_owner.name if self.group_owner else None}"
 
+        # ✅ Add this line inside the class
 
-class GroupMembership(Base):
-    __tablename__ = "group_memberships"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), index=True, nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), index=True, nullable=False)
-    role = Column(Enum(GroupUserType), default=GroupUserType.ADMIN, nullable=False)  # e.g., "owner", "admin", "member"
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    # Relationships
-    group = relationship("Group", back_populates="memberships")
-    user = relationship("User", back_populates="groups")
+    members_count = column_property(
+        select(func.count(GroupMembership.id))
+        .where(GroupMembership.group_id == id)
+        .correlate_except(GroupMembership)
+        .scalar_subquery()
+    )
 
 
 class UserSetting(Base):
