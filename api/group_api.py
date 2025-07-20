@@ -42,7 +42,7 @@ def create_group(request: Request, group_data: CreateGroup,
         return JSONResponse(
             content={"status": "success",
                      "message": resp_msgs.GROUP_CREATED,
-                     "data": GroupResponse.model_validate(group).to_response(request=request)},
+                     "group": GroupResponse.model_validate(group).to_response(request=request)},
             status_code=status.HTTP_201_CREATED
         )
     except Exception as e:

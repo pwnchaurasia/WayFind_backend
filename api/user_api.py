@@ -77,7 +77,7 @@ def user_groups(request:Request, db: Session = Depends(get_db), current_user = D
 
         groups = [GroupResponse.model_validate(membership.group).to_response(request=request) for membership in user_group_memberships]
         return JSONResponse(
-            content={"status": "error", "message": "User groups", "data": groups},
+            content={"status": "success", "message": "User groups", "groups": groups},
             status_code=status.HTTP_200_OK
         )
     except Exception as e:
