@@ -1,15 +1,16 @@
+from datetime import datetime
+
 from fastapi import APIRouter, status, Request
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
-from db.models import Group
-from db.schemas import CreateGroup, GroupResponse, UserResponse
+
+from db.schemas import CreateGroup, GroupResponse, UserResponse, GroupMemberResponse
 from services.group_service import GroupService
 from utils import app_logger, resp_msgs, GroupUserType
 from utils.dependencies import get_current_user
-from utils.app_helper import generate_random_group_code
 from utils.validation import Validator
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -122,13 +123,50 @@ def refresh_group_join_link(request: Request, group_id: str,
 @router.get("/{group_id}/users")
 def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_db)):
     try:
-        group_membership = GroupService.fetch_group_users(db=db, group_id=group_id)
+        group_members = GroupService.fetch_group_users(db=db, group_id=group_id)
+        #TODO in future will send last date time in this too
+        users = []
+        for members in group_members:
+            user_dict = UserResponse.model_validate(members.user).model_dump(mode="json")
 
-        users = [UserResponse.model_validate(membership.user).model_dump(mode="json") for membership in
-                  group_membership]
+            user_dict.update({
+                "role": members.role,
+                "is_member_active": members.is_active,
+                "lastSeen": datetime.now()
+            })
+
+            group_member = GroupMemberResponse.model_validate(user_dict)
+            users.append(group_member.model_dump(mode="json"))
+
         return JSONResponse(
-            content={"status": "error", "message": "User groups", "users": users},
+            content={"status": "success",
+                     "message": "User groups",
+                     "users": users},
             status_code=status.HTTP_200_OK
         )
     except Exception as e:
         app_logger.exceptionlogs(f"Error in fetch group users {e}")
+        return JSONResponse(
+            content={"status": "error",
+                     "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@router.get("/{group_id}/")
+def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_db)):
+    try:
+        group = GroupService.get_group_by_id(db=db, group_id=group_id)
+
+        group_info = GroupResponse.model_validate(group).model_dump(mode="json")
+        return JSONResponse(
+            content={"status": "success",
+                     "message": "Group Info",
+                     "group": group_info},
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in fetch group users {e}")
+        return JSONResponse(
+            content={"status": "error",
+                     "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

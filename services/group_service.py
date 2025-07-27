@@ -11,7 +11,7 @@ logger = app_logger.createLogger("app")
 class GroupService:
 
     @staticmethod
-    def get_group_by_id(db:Session, group_id:int):
+    def get_group_by_id(db:Session, group_id:str):
         return db.query(Group).filter(Group.id == group_id).first()
 
 
