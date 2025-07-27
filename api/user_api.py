@@ -70,6 +70,50 @@ def user_profile(current_user = Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+@app_logger.functionlogs(log="app")
+@router.get("/me/location", status_code=status.HTTP_202_ACCEPTED)
+def user_location(current_user = Depends(get_current_user)):
+    try:
+        location = {
+            "latitude": 12.9716,
+            "longitude": 77.5946,
+            "timestamp": "2025-07-27T10:30:00Z",
+            "accuracy": 10.5
+        }
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Current User",
+                "location": location},
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@app_logger.functionlogs(log="app")
+@router.put("/me/location", status_code=status.HTTP_202_ACCEPTED)
+def user_location(current_user = Depends(get_current_user)):
+    try:
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Location Updated",
+                "user": 'Location updated'},
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 @router.get("/groups")
 def user_groups(request:Request, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     try:

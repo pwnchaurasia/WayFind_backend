@@ -1,5 +1,7 @@
 import uuid
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
+from ast import Index
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.util import hybridproperty
@@ -28,6 +30,8 @@ class User(Base):
     groups = relationship("GroupMembership", back_populates="user", cascade="all, delete-orphan")
     user_setting = relationship("UserSetting", uselist=False, back_populates="user")
     owned_groups = relationship("Group", back_populates="group_owner", cascade="all, delete-orphan")
+    group_settings = relationship("GroupUserSettings", back_populates="user")
+
 
     def __repr__(self):
         return f"User -> {self.id} Name: {self.name} is active: {self.is_active}"
@@ -68,11 +72,10 @@ class Group(Base):
     # Relationship to memberships
     memberships = relationship("GroupMembership", back_populates="group", cascade="all, delete-orphan")
     group_owner = relationship("User", back_populates="owned_groups")
+    user_settings = relationship("GroupUserSettings", back_populates="group")
 
     def __repr__(self):
         return f"Group -> id:{self.id} name: {self.name} owner: {self.owner} owner_name: {self.group_owner.name if self.group_owner else None}"
-
-        # ✅ Add this line inside the class
 
     members_count = column_property(
         select(func.count(GroupMembership.id))
@@ -109,3 +112,46 @@ class DeviceInfo(Base):
     timezone = Column(String(150), nullable=True, index=True)
     locale = Column(String(150), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LocationSharingMode(str, Enum):
+    ALWAYS = "always"
+    ACTIVE_ONLY = "active_only"  # Only when app is active
+    TIME_BASED = "time_based"  # Based on sharing_hours
+    OFF = "off"
+
+
+class GroupUserSettings(Base):
+    __tablename__ = "group_user_settings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id"), nullable=False, index=True)
+
+    # Location Settings
+    is_location_sharing_on = Column(Boolean, default=True, nullable=False)
+    location_sharing_mode = Column(String, default=LocationSharingMode.ALWAYS, nullable=False)
+    location_sharing_radius_meters = Column(Integer, default=1000)  # Share only within this radius of group
+
+    # Audio Settings
+    is_auto_play_audio = Column(Boolean, default=True, nullable=False)
+    # Notification Settings
+    is_notification_on = Column(Boolean, default=True, nullable=False)
+    is_push_notification_on = Column(Boolean, default=True, nullable=False)
+
+    # Privacy Settings
+    is_online_status_visible = Column(Boolean, default=True, nullable=False)
+    is_last_seen_visible = Column(Boolean, default=True, nullable=False)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="group_settings")
+    group = relationship("Group", back_populates="user_settings")
+
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('user_id', 'group_id', name='unique_user_group_settings'),
+    )

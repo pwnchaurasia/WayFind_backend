@@ -152,6 +152,10 @@ def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@router.get("/{group_id}/users/locations")
+async def fetch_group_users_location(request:Request, group_id: str, db: Session = Depends(get_db)):
+    pass
+
 @router.get("/{group_id}/")
 def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_db)):
     try:
