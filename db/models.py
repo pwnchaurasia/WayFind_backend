@@ -112,6 +112,16 @@ class DeviceInfo(Base):
     timezone = Column(String(150), nullable=True, index=True)
     locale = Column(String(150), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Track which device is currently active
+    is_current_device = Column(Boolean, default=True, nullable=False)
+    last_active_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+    # Add unique constraint for device_id per user
+    __table_args__ = (
+        UniqueConstraint('user_id', 'device_id', name='unique_user_device'),
+    )
 
 
 class LocationSharingMode(str, Enum):
