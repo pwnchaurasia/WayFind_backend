@@ -4,8 +4,9 @@ from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import User
-from db.schemas import UserProfile, UserResponse, GroupResponse
+from db.schemas import UserProfile, UserResponse, GroupResponse, LocationUpdate
 from services.group_service import GroupService
+from services.location_service import LocationService
 from services.user_service import UserService
 from utils import app_logger
 from utils.dependencies import get_current_user
@@ -74,38 +75,58 @@ def user_profile(current_user = Depends(get_current_user)):
 @router.get("/me/location", status_code=status.HTTP_202_ACCEPTED)
 def user_location(current_user = Depends(get_current_user)):
     try:
-        location = {
-            "latitude": 12.9716,
-            "longitude": 77.5946,
-            "timestamp": "2025-07-27T10:30:00Z",
-            "accuracy": 10.5
-        }
-        return JSONResponse(
-            content={
-                "status": "success",
-                "message": "Current User",
-                "location": location},
-            status_code=status.HTTP_200_OK
-        )
+        location_service = LocationService()
+        location = location_service.get_user_location(current_user.id)
+
+        if location:
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": "Users location found",
+                    "location": location.model_dump(mode="json")
+                },
+                status_code=status.HTTP_200_OK
+            )
+        else:
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": "Location not found"
+                },
+                status_code=status.HTTP_404_NOT_FOUND
+            )
 
     except Exception as e:
-        app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
+        app_logger.exceptionlogs(f"Error while getting users location, Error: {e}")
         return JSONResponse(
             content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 @app_logger.functionlogs(log="app")
-@router.put("/me/location", status_code=status.HTTP_202_ACCEPTED)
-def user_location(current_user = Depends(get_current_user)):
+@router.put("/me/location")
+def update_user_location(location_data: LocationUpdate,
+                         current_user = Depends(get_current_user)):
     try:
-        return JSONResponse(
-            content={
-                "status": "success",
-                "message": "Location Updated",
-                "user": 'Location updated'},
-            status_code=status.HTTP_200_OK
-        )
+        location_service = LocationService()
+        success = location_service.update_user_location(current_user.id, location_data)
+        if success:
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "message": "Location Updated",
+                    "user": 'Location updated'},
+                status_code=status.HTTP_200_OK
+            )
+        else:
+            logger.debug(f"Not able to save users location {success}")
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": "Failed to update location"
+                },
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
     except Exception as e:
         app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")

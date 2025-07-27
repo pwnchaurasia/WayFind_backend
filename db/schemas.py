@@ -3,7 +3,7 @@ from uuid import UUID
 import random
 from datetime import datetime, timedelta
 from fastapi import  Request
-from pydantic import BaseModel, EmailStr, HttpUrl, computed_field, field_validator, root_validator
+from pydantic import BaseModel, EmailStr, HttpUrl, computed_field, field_validator, root_validator, Field
 
 
 class UserRegistration(BaseModel):
@@ -115,3 +115,25 @@ class GroupResponse(BaseModel):
             "join_url": GroupResponse.generate_group_join_url(request, self.code),
             "members_count": self.members_count,
         }
+
+
+class LocationUpdate(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    accuracy: Optional[float] = Field(None, ge=0)  # GPS accuracy in meters
+    altitude: Optional[float] = None
+    speed: Optional[float] = Field(None, ge=0)  # Speed in m/s
+    heading: Optional[float] = Field(None, ge=0, le=360)  # Direction in degrees
+    timestamp: Optional[datetime] = None  # Client timestamp (for validation)
+
+
+class LocationResponse(BaseModel):
+    user_id: str
+    latitude: float
+    longitude: float
+    accuracy: Optional[float]
+    altitude: Optional[float]
+    speed: Optional[float]
+    heading: Optional[float]
+    last_updated: datetime
+    is_stale: bool  # True if location is older than X minutes
