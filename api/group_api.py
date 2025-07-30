@@ -9,6 +9,8 @@ from db.db_conn import get_db
 
 from db.schemas import CreateGroup, GroupResponse, UserResponse, GroupMemberResponse
 from services.group_service import GroupService
+from services.location_service import LocationService
+from services.user_service import UserService
 from utils import app_logger, resp_msgs, GroupUserType
 from utils.dependencies import get_current_user
 from utils.validation import Validator
@@ -154,12 +156,51 @@ def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_
 
 @router.get("/{group_id}/users/locations")
 async def fetch_group_users_location(request:Request, group_id: str, db: Session = Depends(get_db)):
-    pass
+    try:
+        # check if group exists
+        group = GroupService.get_group_by_id(group_id=group_id)
+        if not group:
+            return JSONResponse(
+                content={"status": "error",
+                         "message": 'Group Not Found'},
+                status_code=status.HTTP_404_NOT_FOUND)
+
+        # fetch group users
+        group_users = GroupService.fetch_group_users(group_id=group_id)
+
+        # fetch data from redis
+        user_ids = [user.user_id for user in group_users]
+        location_service = LocationService()
+        location_service.get_multiple_user_locations(user_ids=user_ids)
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "User Group Location",
+                "users_location": []
+            }
+        )
+    except Exception as e:
+        app_logger.exceptionlogs(f"Error in fetch group users {e}")
+        return JSONResponse(
+            content={"status": "error",
+                     "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
 
 @router.get("/{group_id}/")
 def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_db)):
     try:
         group = GroupService.get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": "Group not found"
+                }
+            )
 
         group_info = GroupResponse.model_validate(group).model_dump(mode="json")
         return JSONResponse(
