@@ -137,3 +137,18 @@ class LocationResponse(BaseModel):
     heading: Optional[float]
     last_updated: datetime
     is_stale: bool  # True if location is older than X minutes
+
+
+class UserWithLocation(BaseModel):
+    id: str
+    name: str
+    email: str
+    phone_number: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+    altitude: Optional[float] = None
+    speed: Optional[float] = None
+    heading: Optional[float] = None
+    timestamp: Optional[datetime] = None

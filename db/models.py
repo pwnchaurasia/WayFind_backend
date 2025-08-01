@@ -38,9 +38,7 @@ class User(Base):
 
     @hybridproperty
     def is_profile_complete(self):
-        if not self.name or not self.email or not self.profile_picture_url:
-            return False
-        return True
+        return sum(bool(field) for field in [self.name, self.email, self.profile_picture_url]) >= 2
 
 class GroupMembership(Base):
     __tablename__ = "group_memberships"

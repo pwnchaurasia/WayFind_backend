@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 
-from db.schemas import CreateGroup, GroupResponse, UserResponse, GroupMemberResponse
+from db.schemas import CreateGroup, GroupResponse, UserResponse, GroupMemberResponse, UserWithLocation
 from services.group_service import GroupService
 from services.location_service import LocationService
 from services.user_service import UserService
@@ -158,7 +158,7 @@ def fetch_group_users(request:Request, group_id: str, db: Session = Depends(get_
 async def fetch_group_users_location(request:Request, group_id: str, db: Session = Depends(get_db)):
     try:
         # check if group exists
-        group = GroupService.get_group_by_id(group_id=group_id)
+        group = GroupService.get_group_by_id(group_id=group_id, db=db)
         if not group:
             return JSONResponse(
                 content={"status": "error",
@@ -166,19 +166,38 @@ async def fetch_group_users_location(request:Request, group_id: str, db: Session
                 status_code=status.HTTP_404_NOT_FOUND)
 
         # fetch group users
-        group_users = GroupService.fetch_group_users(group_id=group_id)
+        group_memberships = GroupService.fetch_group_users(group_id=group_id, db=db)
 
         # fetch data from redis
-        user_ids = [user.user_id for user in group_users]
+        user_ids = [membership.user_id for membership in group_memberships]
         location_service = LocationService()
-        location_service.get_multiple_user_locations(user_ids=user_ids)
+        locations = location_service.get_multiple_user_locations(user_ids=user_ids)
+
+        location_dict = {str(locations[loc].user_id): locations[loc].model_dump(exclude={'user_id'}) for loc in locations}
+
+        users_with_locations = []
+        for membership in group_memberships:
+            user_location_data = location_dict.get(str(membership.user.id), {})
+
+            user_response = UserWithLocation(
+                id=str(membership.user.id),
+                name=membership.user.name,
+                email=membership.user.email,
+                phone_number=getattr(membership.user, 'phone_number', None),
+                profile_picture_url=getattr(membership.user, 'profile_picture_url', None),
+                **user_location_data
+            )
+            users_with_locations.append(user_response)
+            # Convert to list of dicts
+        response_list = [user.model_dump() for user in users_with_locations]
 
         return JSONResponse(
             content={
                 "status": "success",
                 "message": "User Group Location",
-                "users_location": []
-            }
+                "users_location": response_list
+            },
+            status_code=status.HTTP_200_OK
         )
     except Exception as e:
         app_logger.exceptionlogs(f"Error in fetch group users {e}")
