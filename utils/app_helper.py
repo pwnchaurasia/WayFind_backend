@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import Request, status, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
-import jwt
+from jose import jwt
 from fastapi.exceptions import RequestValidationError
 
 from db.models import User
