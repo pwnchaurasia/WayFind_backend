@@ -188,6 +188,8 @@ class Organization(Base):
     name = Column(String(100), nullable=False, unique=True, index=True)
     description = Column(String(500), nullable=True)
     logo = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)  # Add this
+    is_deleted = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -207,6 +209,7 @@ class OrganizationMember(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     role = Column(Enum(OrganizationRole), nullable=False)
     is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

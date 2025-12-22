@@ -1,4 +1,6 @@
+import os
 from dotenv import load_dotenv
+
 load_dotenv('.env')
 
 
@@ -30,6 +32,8 @@ app = FastAPI(
 
 app.mount("/templates", StaticFiles(directory="templates"), name="templates")
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
+
+os.makedirs("uploads/logos", exist_ok=True)
 
 
 @app.get("/api/status")

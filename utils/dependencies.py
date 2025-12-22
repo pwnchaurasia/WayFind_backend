@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from fastapi.responses import RedirectResponse
 
 from db.db_conn import get_db
+from utils import UserRole
 
 from utils.app_helper import verify_user_from_token
 
@@ -38,5 +39,32 @@ async def get_current_user_web(
     is_verified, msg, user = verify_user_from_token(access_token, db=db)
     if not is_verified:
         return None
+
+    return user
+
+
+async def verify_super_admin(
+        access_token: str = Cookie(None),
+        db: Session = Depends(get_db)
+):
+    """Verify user is super admin"""
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    is_verified, msg, user = verify_user_from_token(access_token, db=db)
+    if not is_verified or not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    if user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only super admins can perform this action"
+        )
 
     return user

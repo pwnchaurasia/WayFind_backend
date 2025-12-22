@@ -1,6 +1,6 @@
+from fastapi import APIRouter, Depends, status, Request, Response, Form
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Form
 from starlette.responses import JSONResponse, RedirectResponse
 
 from db.db_conn import get_db
@@ -9,7 +9,6 @@ from services.user_service import UserService
 from utils import app_logger, resp_msgs
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
 from utils.templates import jinja_templates
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = app_logger.createLogger("app")

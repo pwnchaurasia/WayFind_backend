@@ -5,8 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WayFind Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 1;
+        }
+
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            background-color: var(--success-color);
+            color: var(--bg-primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 2000;
+            display: none;
+        }
+
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
     <!-- Navigation -->
     {% include 'partials/navbar.html' %}
 
@@ -15,26 +103,66 @@
         <!-- Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value">5</div>
+                <div class="stat-value">{{ total_organizations }}</div>
                 <div class="stat-label">Organizations</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">150</div>
+                <div class="stat-value">{{ total_users }}</div>
                 <div class="stat-label">Total Users</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">12</div>
+                <div class="stat-value">{{ active_rides }}</div>
                 <div class="stat-label">Active Rides</div>
             </div>
         </div>
+
+        <!-- Additional Analytics -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Quick Overview</h2>
+    </div>
+    <div class="card-body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    Total Rides Completed
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);">
+                    {{ total_completed_rides }}
+                </div>
+            </div>
+            <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    Total Distance Covered
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);">
+                    {{ total_distance_km }} km
+                </div>
+            </div>
+            <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    Avg Riders per Ride
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-green);">
+                    {{ avg_riders_per_ride }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
 
         <!-- Organizations Card -->
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">Organizations</h2>
-                <button class="btn btn-primary btn-sm">Create Organization</button>
+                <button class="btn btn-primary btn-sm" onclick="openModal()">Create Organization</button>
             </div>
             <div class="card-body">
+                {% if organizations %}
                 <table class="table">
                     <thead>
                         <tr>
@@ -42,28 +170,117 @@
                             <th>Description</th>
                             <th>Members</th>
                             <th>Status</th>
+                            <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {% for org in organizations %}
                         <tr>
-                            <td>Mumbai Riders</td>
-                            <td>Riding community in Mumbai</td>
-                            <td>45</td>
-                            <td><span class="status-badge status-active">Active</span></td>
+                            <td>{{ org.name }}</td>
+                            <td>{{ org.description }}</td>
+                            <td>{{ org.members_count }}</td>
                             <td>
-                                <button class="btn btn-secondary btn-sm">View</button>
-                                <button class="btn btn-danger btn-sm">Delete</button>
+                                <span class="status-badge {% if org.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                    {% if org.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ org.created_at }}</td>
+                            <td>
+                                {% if not org.is_deleted %}
+                                <form method="POST" action="{{ url_for('toggle_organization_web', org_id=org.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-secondary btn-sm">
+                                        {% if org.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_organization_web', org_id=org.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this organization?')">
+                                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                                </form>
+                                {% else %}
+                                <span class="status-badge status-inactive">
+                                    Deleted
+                                </span>
+
+                                {%endif %}
                             </td>
                         </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
+                {% else %}
+                <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    No organizations found. Create your first organization to get started!
+                </p>
+                {% endif %}
             </div>
         </div>
     </main>
 
- <!-- Include Footer -->
+    <!-- Create Organization Modal -->
+        <div class="modal" id="createOrgModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Organization</h3>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('create_organization_web') }}" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label" for="name">Organization Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="description">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="logo">Organization Logo (Max 400KB)</label>
+                    <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
+                    <small style="color: var(--text-secondary); font-size: 0.75rem;">Accepted: JPG, PNG, WEBP, GIF</small>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Create</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Include Footer -->
     {% include 'partials/footer.html' %}
 
+    <script>
+        function openModal() {
+            document.getElementById('createOrgModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('createOrgModal').classList.remove('active');
+            document.getElementById('name').value = '';
+            document.getElementById('description').value = '';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('createOrgModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Show notification on page load if needed
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success')) {
+            showNotification('Operation completed successfully!');
+        }
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
