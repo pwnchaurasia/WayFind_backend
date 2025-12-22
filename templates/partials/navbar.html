@@ -1,0 +1,15 @@
+<nav class="navbar">
+    <a class="navbar-brand" href="/dashboard">
+        <span class="navbar-logo">✈️</span>
+        Wayfind Admin
+    </a>
+    <div class="nav-links">
+        <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/dashboard">Dashboard</a>
+        <a class="nav-link {% if active_page == 'organizations' %}active{% endif %}" href="/organizations">Organizations</a>
+        <a class="nav-link {% if active_page == 'rides' %}active{% endif %}" href="/rides">Rides</a>
+        <a class="nav-link {% if active_page == 'users' %}active{% endif %}" href="/users">Users</a>
+        <form method="POST" action="/v1/auth/logout" style="display: inline;">
+            <button type="submit" class="btn btn-secondary btn-sm" style="margin-left: 1rem;">Logout</button>
+        </form>
+    </div>
+</nav>

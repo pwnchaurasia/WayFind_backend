@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WayFind Users</title>
+    
+    <!-- Theme Colors -->
+    <style>
+        :root {
+            --primary-color: #1976d2;
+            --primary-light: #2d8a2;
+            --primary-dark: #0f4c81;
+            --secondary-color: #6c757d;
+            --secondary-light: #a5d4f2;
+            --secondary-dark: #3a354c;
+            --accent-color: #00bcd4f;
+            --accent-light: #28a745;
+            --background-color: #ffffff;
+            --surface-color: #f8f9fa;
+            --text-primary: #1976d2;
+            --text-secondary: #6c757d;
+            --text-disabled: #9e9e9e9;
+            --border-color: #e0e0e0;
+            --error-color: #ef5350;
+            --warning-color: #ffc107;
+            --success-color: #10b981;
+            --info-color: #2196f3;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        /* User Cards */
+        .user-card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .user-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        
+        .user-info {
+            text-align: center;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+        
+        .user-role {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background-color: var(--primary-color);
+            color: var(--background-color);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .user-contact {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+        
+        .user-contact .label {
+            font-weight: 600;
+        }
+        
+        /* Navigation */
+        .navbar {
+            background-color: var(--primary-color);
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .navbar-brand {
+            color: var(--background-color);
+            font-weight: bold;
+            font-size: 1.25rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .nav-link {
+            color: var(--background-color);
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: var(--primary-light);
+        }
+        
+        .nav-link.active {
+            background-color: var(--accent-color);
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--background-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-light);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: var(--background-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--secondary-light);
+        }
+        
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-primary {
+            background-color: var(--primary-color);
+            color: var(--background-color);
+        }
+        
+        .badge-success {
+            background-color: var(--success-color);
+            color: var(--background-color);
+        }
+        
+        .badge-warning {
+            background-color: var(--warning-color);
+            color: var(--text-primary);
+        }
+        
+        .badge-danger {
+            background-color: var(--error-color);
+            color: var(--background-color);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .user-card {
+                margin-bottom: 1rem;
+            }
+            
+            .user-info {
+                text-align: left;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .navbar {
+                padding: 0.75rem 0;
+            }
+            
+            .nav-link {
+                padding: 0.375rem 0.75rem;
+            }
+            
+            .btn {
+                padding: 0.625rem 1.25rem;
+                font-size: 0.875rem;
+            }
+            
+            .form-control {
+                padding: 0.625rem;
+            }
+            
+            .badge {
+                padding: 0.2rem 0.375rem;
+                font-size: 0.625rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a class="navbar-brand" href="/">WayFind</a>
+            <div style="display: flex; gap: 1rem; margin-left: auto;">
+                <a class="nav-link active" href="/templates/users.html">Users</a>
+                <a class="nav-link" href="/templates/organizations.html">Organizations</a>
+                <a class="nav-link" href="/templates/rides.html">Rides</a>
+                <a class="nav-link" href="/templates/dashboard.html">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container" style="padding: 2rem 0;">
+        <div class="header-section">
+            <h1>User Management</h1>
+            <p>Manage application users, assign to organizations, and control access levels</p>
+        </div>
+
+        <div class="actions-section">
+            <button class="btn btn-primary" onclick="showCreateUserModal()">
+                <i class="fas fa-plus"></i> Create User
+            </button>
+        </div>
+
+        <!-- User List -->
+        <div class="users-grid" id="users-container">
+            <!-- Users will be loaded via JavaScript -->
+        </div>
+
+        <!-- Create User Modal -->
+        <div class="modal" id="createUserModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New User</h3>
+                    <button class="close-modal" onclick="closeModal('createUserModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="createUserForm">
+                        <div class="form-group">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="userName" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="userEmail">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" class="form-control" id="userPhone" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">User Role</label>
+                            <select class="form-control" id="userRole">
+                                <option value="NORMAL_USER">Normal User</option>
+                                <option value="SUPER_ADMIN">Super Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Organizations</label>
+                            <div class="checkbox-group" id="userOrganizations">
+                                <!-- Organizations will be populated via JavaScript -->
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Create User</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeModal('createUserModal')">Cancel</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit User Modal -->
+        <div class="modal" id="editUserModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit User</h3>
+                    <button class="close-modal" onclick="closeModal('editUserModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUserId">
+                        <div class="form-group">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="editUserName" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editUserEmail">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="editUserPhone">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">User Role</label>
+                            <select class="form-control" id="editUserRole">
+                                <option value="NORMAL_USER">Normal User</option>
+                                <option value="SUPER_ADMIN">Super Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Organizations</label>
+                            <div class="checkbox-group" id="editUserOrganizations">
+                                <!-- Organizations will be populated via JavaScript -->
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Update User</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast" id="toast" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 9999;">
+            <div class="toast-content">
+                <div class="toast-header">
+                    <span class="toast-title" id="toastTitle">Success</span>
+                    <button class="close-toast" onclick="hideToast()">&times;</button>
+                </div>
+                <div class="toast-body" id="toastMessage">Operation completed successfully</div>
+            </div>
+        </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        // Configuration
+        const API_BASE = 'http://localhost:8000/api';
+        
+        // Toast notification function
+        function showToast(title, message, type = 'success') {
+            $('#toastTitle').text(title);
+            $('#toastMessage').text(message);
+            $('#toast').removeClass().addClass(`toast-${type}`);
+            $('#toast').fadeIn(200).delay(3000).fadeOut(500);
+        }
+
+        function hideToast() {
+            $('#toast').fadeOut(500).removeClass().css('display', 'none');
+        }
+
+        // Close modal function
+        function closeModal(modalId) {
+            $('#' + modalId).fadeOut(300);
+        }
+
+        // Show modal function
+        function showModal(modalId) {
+            $('#' + modalId).fadeIn(300);
+        }
+
+        // Initialize on page load
+        $(document).ready(function() {
+            loadUsers();
+            initializeModals();
+        });
+
+        // Initialize modals
+        function initializeModals() {
+            // Close modal when clicking outside
+            $('.modal').on('click', function(e) {
+                if ($(e.target).is('.modal-content')) {
+                    return;
+                }
+                closeModal($(e.target).attr('id'));
+            });
+        }
+
+        // Create User
+        function showCreateUserModal() {
+            showModal('createUserModal');
+        }
+
+        $('#createUserForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: $('#userName').val(),
+                email: $('#userEmail').val(),
+                phone_number: $('#userPhone').val(),
+                role: $('#userRole').val(),
+                organizations: []
+            };
+
+            $.ajax({
+                url: API_BASE + '/users',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(response) {
+                    closeModal('createUserModal');
+                    showToast('Success', 'User created successfully!', 'success');
+                    loadUsers();
+                },
+                error: function(xhr) {
+                    showToast('Error', xhr.responseText || 'Failed to create user', 'error');
+                }
+            });
+        });
+
+        // Edit User
+        function editUser(userId) {
+            // Fetch user data and populate form
+            $.ajax({
+                url: API_BASE + `/users/${userId}`,
+                method: 'GET',
+                success: function(user) {
+                    $('#editUserId').val(user.id);
+                    $('#editUserName').val(user.name);
+                    $('#editUserEmail').val(user.email);
+                    $('#editUserPhone').val(user.phone_number);
+                    $('#editUserRole').val(user.role);
+                    
+                    // Load organizations for checkbox
+                    if (user.organizations && user.organizations.length > 0) {
+                        const orgCheckbox = $('#editUserOrganizations');
+                        orgCheckbox.empty();
+                        
+                        user.organizations.forEach(function(org) {
+                            const checkbox = $(`<input type="checkbox" value="${org.id}">`);
+                            checkbox.prop('checked', true);
+                            checkbox.after('<span>' + org.name + '</span>');
+                            orgCheckbox.append(checkbox);
+                        });
+                    }
+                }
+                    
+                    showModal('editUserModal');
+                },
+                error: function(xhr) {
+                    showToast('Error', 'Failed to load user data', 'error');
+                }
+            });
+        }
+
+        $('#editUserForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                name: $('#editUserName').val(),
+                email: $('#editUserEmail').val(),
+                phone_number: $('#editUserPhone').val(),
+                role: $('#editUserRole').val(),
+                organizations: []
+            };
+
+            // Get selected organizations
+            $('#editUserOrganizations input:checked').each(function() {
+                formData.organizations.push({
+                    id: $(this).val(),
+                    name: $(this).siblings('span').text()
+                });
+            });
+
+            $.ajax({
+                url: API_BASE + `/users/${$('#editUserId').val()}`,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(response) {
+                    closeModal('editUserModal');
+                    showToast('Success', 'User updated successfully!', 'success');
+                    loadUsers();
+                },
+                error: function(xhr) {
+                    showToast('Error', xhr.responseText || 'Failed to update user', 'error');
+                }
+            });
+        });
+
+        // Delete User
+        function deleteUser(userId) {
+            swal({
+                title: 'Delete User',
+                text: 'Are you sure you want to delete this user?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef5350',
+                confirmButtonText: 'Delete',
+                closeOnConfirm: true
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API_BASE + `/users/${userId}`,
+                        method: 'DELETE',
+                        success: function(response) {
+                            showToast('Success', 'User deleted successfully', 'success');
+                            loadUsers();
+                        },
+                        error: function(xhr) {
+                            showToast('Error', xhr.responseText || 'Failed to delete user', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        // Load Users
+        function loadUsers() {
+            $.ajax({
+                url: API_BASE + '/users',
+                method: 'GET',
+                success: function(response) {
+                    const users = response.data.users || [];
+                    let html = '<div class="users-grid">';
+                    
+                    users.forEach(function(user) {
+                        const userRole = user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'NORMAL_USER';
+                        const userRoleBadge = user.role === 'SUPER_ADMIN' ? 'badge-primary' : 'badge-success';
+                        
+                        html += `
+                            <div class="user-card">
+                                <div class="user-avatar">
+                                    ${user.profile_picture_url ? 
+                                        `<img src="${user.profile_picture_url}" alt="${user.name}" />` : 
+                                        `<div style="width: 100%; height: 100%; background-color: var(--secondary-color); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--text-secondary);">
+                                            <i class="fas fa-user"></i>
+                                        </div>`
+                                    }
+                                </div>
+                                <div class="user-info">
+                                    <div class="user-name">${user.name}</div>
+                                    <div class="user-contact">
+                                        <div class="label">Email:</div>
+                                        <div class="value">${user.email || '-'}</div>
+                                    </div>
+                                        <div class="label">Phone:</div>
+                                        <div class="value">${user.phone_number || '-'}</div>
+                                    </div>
+                                    <div class="label">Role:</div>
+                                        <div class="value"><span class="badge ${userRoleBadge}">${userRole}</span></div>
+                                    </div>
+                                </div>
+                                <div class="user-actions">
+                                    <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.id}')">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    
+                    $('#users-container').html(html);
+                },
+                error: function(xhr) {
+                    showToast('Error', 'Failed to load users', 'error');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

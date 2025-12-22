@@ -20,6 +20,7 @@ class User(Base):
     name = Column(String, nullable=True)
     email = Column(String, unique=True, index=True, nullable=True)
     phone_number = Column(String, unique=True, index=True)
+    hashed_password = Column(String, nullable=True)
     is_email_verified = Column(Boolean, default=False)
     is_phone_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=False)

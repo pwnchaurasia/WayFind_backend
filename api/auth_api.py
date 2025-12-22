@@ -1,17 +1,14 @@
-from pyexpat.errors import messages
-
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status
-from starlette.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, Form
+from starlette.responses import JSONResponse, RedirectResponse
 
 from db.db_conn import get_db
-from db.models import User
 from db.schemas import UserRegistration, OTPVerification
 from services.user_service import UserService
 from utils import app_logger, resp_msgs
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
-from starlette.templating import Jinja2Templates
+from utils.templates import jinja_templates
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -152,3 +149,70 @@ def verify_access_token(access_token: str = Depends(oauth2_scheme), db: Session 
             content={"status": "error", "messages": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+@router.get("/login", name="login_page")
+async def root(request: Request):
+    return jinja_templates.TemplateResponse("login.html", {"request": request})
+
+
+
+@router.post("/login", status_code=status.HTTP_200_OK, name="login")
+async def login(
+        request: Request,
+        response: Response,
+        db: Session = Depends(get_db),
+        phone_number: str = Form(...),
+        password: str = Form(...),
+        remember: bool = Form(False),):
+    try:
+        user = UserService.get_user_by_phone_number(db=db, phone_number=phone_number)
+        if not user:
+            return jinja_templates.TemplateResponse(
+                "login.html",
+                {
+                    "request": request,
+                    "error": "Invalid phone number or password"
+                }
+            )
+
+        access_token = create_auth_token(user)
+        refresh_token = create_refresh_token(user)
+
+        response = RedirectResponse(url=request.url_for('dashboard_page'), status_code=302)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=86400 if remember else 3600,
+            samesite="lax"
+        )
+
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            max_age=604800,  # 7 days
+            samesite="lax"
+        )
+        return response
+
+    except Exception as e:
+        logger.exception(f"Login error: {e}")
+        return jinja_templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": "An error occurred. Please try again."
+            }
+        )
+
+
+@router.post("/logout", name="logout")
+async def logout(request: Request, response: Response):
+    """Handle logout"""
+    response = RedirectResponse(url=request.url_for("login_page"), status_code=302)
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    return response

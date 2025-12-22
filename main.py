@@ -5,10 +5,14 @@ load_dotenv('.env')
 from fastapi.exceptions import RequestValidationError
 from utils.app_helper import validation_exception_handler
 from utils.app_logger import createLogger
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.routing import APIRoute
 from api import main
-from fastapi.templating import Jinja2Templates
+from utils.templates import jinja_templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+from utils.dependencies import get_current_user_web
+
 
 
 
@@ -24,14 +28,21 @@ app = FastAPI(
 )
 
 
-jinja_templates = Jinja2Templates(directory="templates")
+app.mount("/templates", StaticFiles(directory="templates"), name="templates")
+app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
+
+@app.get("/api/status")
+async def status():
+    return {"status": "API is running"}
 
 
 @app.get("/", name="root")
-async def root(request: Request):
+async def root(request: Request, current_user = Depends(get_current_user_web)):
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+    return RedirectResponse(url=request.url_for('dashboard_page'))
     return jinja_templates.TemplateResponse("index.html", {"request": request})
-
 
 
 
