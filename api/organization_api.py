@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
@@ -13,11 +14,13 @@ from db.schemas.organization import (
     CreateOrganization, AddOrganizationMember, OrganizationResponse,
     OrganizationMemberResponse
 )
+from services.member_service import MemberService
 from services.organization_service import OrganizationService
 from utils import app_logger, resp_msgs
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole
 from utils.storage import storage
+from utils.templates import jinja_templates
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 logger = app_logger.createLogger("app")
@@ -491,3 +494,75 @@ async def delete_organization_web(
         logger.exception(f"Error deleting organization: {e}")
 
     return RedirectResponse(url=request.url_for('dashboard_page'), status_code=303)
+
+
+@router.get("/{org_id}/detail", name="organization_detail_page")
+async def organization_detail_page(
+        request: Request,
+        org_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Organization detail page with members and analytics"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    # Get organization
+    organization = OrganizationService.get_organization_by_id(db, org_id)
+    if not organization:
+        return RedirectResponse(url=request.url_for('dashboard_page'))
+
+    # Get current user's role in org (if member)
+    user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+
+    # Get all members
+    members = MemberService.get_organization_members(db, org_id)
+    members_data = []
+
+    for member in members:
+        user = member.user
+        members_data.append({
+            "id": str(member.id),
+            "user_id": str(member.user_id),
+            "name": user.name or "No Name",
+            "email": user.email or "N/A",
+            "phone": user.phone_number or "N/A",
+            "role": member.role.value,
+            "is_active": member.is_active,
+            "created_at": member.created_at.strftime("%Y-%m-%d")
+        })
+
+    # Get stats
+    from db.models import Ride
+    from utils.enums import RideStatus
+
+    active_rides = db.query(func.count(Ride.id)).filter(
+        Ride.organization_id == org_id,
+        Ride.status == RideStatus.ACTIVE
+    ).scalar() or 0
+
+    total_rides = db.query(func.count(Ride.id)).filter(
+        Ride.organization_id == org_id
+    ).scalar() or 0
+
+    return jinja_templates.TemplateResponse(
+        "organization_detail.html",
+        {
+            "request": request,
+            "user": current_user,
+            "active_page": "dashboard",
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name,
+                "description": organization.description or "No description",
+                "logo": organization.logo,
+                "is_active": organization.is_active,
+                "created_at": organization.created_at.strftime("%Y-%m-%d")
+            },
+            "members": members_data,
+            "members_count": len(members_data),
+            "active_rides": active_rides,
+            "total_rides": total_rides,
+            "user_role": user_role.value if user_role else None
+        }
+    )

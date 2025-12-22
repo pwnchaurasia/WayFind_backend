@@ -16,7 +16,7 @@ from db.models import User
 from services.user_service import UserService
 from utils import app_logger
 from utils.redis_helper import RedisHelper
-
+from utils.security import get_password_hash
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15)
@@ -180,4 +180,7 @@ def generate_random_group_code():
     timestamp = str(int(time.time() * 1000))  # Get epoch time in milliseconds
     random_part = ''.join(secrets.choice(string.ascii_letters) for _ in range(40 - len(timestamp)))
 
-    return random_part + timestamp  # Ensures uniqueness via timestamp
+    return random_part + timestamp
+
+def hash_password(password: str):
+    return get_password_hash(password=password)

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy.orm import Session
 
 from db.models import User, UserSetting
@@ -8,7 +10,7 @@ from utils import app_logger
 class UserService:
 
     @staticmethod
-    def get_user_by_id(user_id: int, db: Session):
+    def get_user_by_id(user_id: UUID, db: Session):
         query = db.query(User)
         return query.filter(User.id == user_id).first()
 

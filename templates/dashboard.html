@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WayFind Admin Dashboard</title>
+    <title>Squadra Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
     <style>
         /* Modal styles */
@@ -176,8 +176,13 @@
                     </thead>
                     <tbody>
                         {% for org in organizations %}
-                        <tr>
-                            <td>{{ org.name }}</td>
+                        <tr style="cursor: pointer;" onclick="window.location.href='{{ url_for('organization_detail_page', org_id=org.id) }}'">
+                            <td>
+                                {% if org.logo %}
+                                <img src="{{ org.logo }}" alt="{{ org.name }}" style="width: 30px; height: 30px; border-radius: 4px; margin-right: 8px; vertical-align: middle;">
+                                {% endif %}
+                                {{ org.name }}
+                            </td>
                             <td>{{ org.description }}</td>
                             <td>{{ org.members_count }}</td>
                             <td>
@@ -186,7 +191,7 @@
                                 </span>
                             </td>
                             <td>{{ org.created_at }}</td>
-                            <td>
+                            <td onclick="event.stopPropagation();">
                                 {% if not org.is_deleted %}
                                 <form method="POST" action="{{ url_for('toggle_organization_web', org_id=org.id) }}" style="display: inline;">
                                     <button type="submit" class="btn btn-secondary btn-sm">
@@ -197,11 +202,8 @@
                                     <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                                 </form>
                                 {% else %}
-                                <span class="status-badge status-inactive">
-                                    Deleted
-                                </span>
-
-                                {%endif %}
+                                <span class="status-badge status-inactive">Deleted</span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -214,6 +216,8 @@
                 {% endif %}
             </div>
         </div>
+
+
     </main>
 
     <!-- Create Organization Modal -->

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ organization.name }} - Members</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 1;
+        }
+
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
+
+        .breadcrumb {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .breadcrumb a {
+            color: var(--accent-green);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    {% include 'partials/navbar.html' %}
+
+    <main class="container">
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
+            <span>/</span>
+            <span>{{ organization.name }}</span>
+            <span>/</span>
+            <span>Members</span>
+        </div>
+
+        <!-- Organization Info -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">{{ organization.name }}</h2>
+                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.875rem;">
+                        {{ organization.description or "No description" }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Members Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Members ({{ members|length }})</h2>
+                {% if user_role in ['founder', 'co_founder'] %}
+                <button class="btn btn-primary btn-sm" onclick="openModal()">Invite Member</button>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if members %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>{{ member.name }}</td>
+                            <td>{{ member.email }}</td>
+                            <td>{{ member.phone }}</td>
+                            <td>
+                                <span class="status-badge status-active">
+                                    {{ member.role|upper|replace('_', ' ') }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-badge {% if member.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                    {% if member.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ member.created_at }}</td>
+                            <td>
+                                {% if user_role == 'founder' or (user_role == 'co_founder' and member.role == 'admin') %}
+                                <form method="POST" action="{{ url_for('toggle_member_web', org_id=organization.id, member_id=member.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-secondary btn-sm">
+                                        {% if member.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('remove_member_web', org_id=organization.id, member_id=member.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure?')">
+                                    <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    No members yet. Invite your first member to get started!
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <!-- Invite Member Modal -->
+    <div class="modal" id="inviteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Invite Member</h3>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('invite_member_web', org_id=organization.id) }}">
+                <div class="form-group">
+                    <label class="form-label" for="name">Name *</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="email">Email *</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="phone_number">Phone Number *</label>
+                    <input type="tel" class="form-control" id="phone_number" name="phone_number" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="role">Role *</label>
+                    <select class="form-control" id="role" name="role" required>
+                        {% if user_role == 'founder' %}
+                        <option value="co_founder">Co-Founder</option>
+                        {% endif %}
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Invite</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% include 'partials/footer.html' %}
+
+    <script>
+        function openModal() {
+            document.getElementById('inviteModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('inviteModal').classList.remove('active');
+            document.getElementById('name').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('phone_number').value = '';
+        }
+
+        document.getElementById('inviteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
