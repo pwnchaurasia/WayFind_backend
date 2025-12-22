@@ -4,12 +4,13 @@ from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
-from db.models import User, DeviceInfo
-from db.schemas import UserProfile, UserResponse, GroupResponse, LocationUpdate
+from db.models import User, DeviceInfo, UserRideInformation
+from db.schemas import UserProfile, UserResponse, GroupResponse, LocationUpdate,CreateVehicle
 from services.device_info_service import DeviceInfoService
 from services.group_service import GroupService
 from services.location_service import LocationService
 from services.user_service import UserService
+from services.user_vehicle_service import UserVehicleService
 from utils import app_logger
 from utils.dependencies import get_current_user
 from utils import resp_msgs
@@ -155,6 +156,166 @@ def user_groups(request:Request, db: Session = Depends(get_db), current_user = D
         return JSONResponse(
             content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@app_logger.functionlogs(log="app")
+@router.post("/me/vehicles", status_code=status.HTTP_201_CREATED)
+async def create_vehicle(
+    request: CreateVehicle,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add vehicle to user's garage"""
+    try:
+        vehicle = UserRideInformation(
+            user_id=current_user.id,
+            make=request.make,
+            model=request.model,
+            year=request.year,
+            license_plate=request.license_plate,
+            is_primary=request.is_primary,
+            is_pillion=request.is_pillion
+        )
+        db.add(vehicle)
+        db.commit()
+        db.refresh(vehicle)
+        
+        logger.info(f"Vehicle created for user: {current_user.id}")
+        
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Vehicle added successfully",
+                "vehicle": VehicleResponse.from_orm(vehicle)
+            },
+            status_code=status.HTTP_201_CREATED
+        )
+    except Exception as e:
+        logger.exception(f"Error creating vehicle: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@app_logger.functionlogs(log="app")
+@router.get("/me/vehicles", status_code=status.HTTP_200_OK)
+async def get_user_vehicles(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's vehicles"""
+    try:
+        vehicles = db.query(UserRideInformation).filter(
+            UserRideInformation.user_id == current_user.id
+        ).all()
+        
+        return JSONResponse(
+            content={
+                "status": "success",
+                "vehicles": [VehicleResponse.from_orm(vehicle) for vehicle in vehicles]
+            },
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        logger.exception(f"Error getting vehicles: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@app_logger.functionlogs(log="app")
+@router.put("/me/vehicles/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def update_vehicle(
+    vehicle_id: str,
+    request: CreateVehicle,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update vehicle"""
+    try:
+        vehicle = db.query(UserRideInformation).filter(UserRideInformation.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vehicle not found"
+            )
+        
+        if vehicle.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only update your own vehicles"
+            )
+        
+        vehicle.make = request.make or vehicle.make
+        vehicle.model = request.model or vehicle.model
+        vehicle.year = request.year or vehicle.year
+        vehicle.license_plate = request.license_plate or vehicle.license_plate
+        vehicle.is_primary = request.is_primary if request.is_primary is not None else vehicle.is_primary
+        vehicle.is_pillion = request.is_pillion if request.is_pillion is not None else vehicle.is_pillion
+        
+        db.commit()
+        db.refresh(vehicle)
+        
+        logger.info(f"Vehicle updated: {vehicle_id}")
+        
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Vehicle updated successfully",
+                "vehicle": VehicleResponse.from_orm(vehicle)
+            },
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        logger.exception(f"Error updating vehicle: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@app_logger.functionlogs(log="app")
+@router.delete("/me/vehicles/{vehicle_id}", status_code=status.HTTP_200_OK)
+async def delete_vehicle(
+    vehicle_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete vehicle"""
+    try:
+        vehicle = db.query(UserRideInformation).filter(UserRideInformation.id == vehicle_id).first()
+        if not vehicle:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vehicle not found"
+            )
+        
+        if vehicle.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only delete your own vehicles"
+            )
+        
+        db.delete(vehicle)
+        db.commit()
+        
+        logger.info(f"Vehicle deleted: {vehicle_id}")
+        
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Vehicle deleted successfully"
+            },
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        logger.exception(f"Error deleting vehicle: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
         )
 
 

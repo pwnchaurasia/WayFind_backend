@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 import random
 from datetime import datetime, timedelta
-from fastapi import  Request
+from fastapi import Request
 from pydantic import BaseModel, EmailStr, HttpUrl, computed_field, field_validator, root_validator, Field
 
 
@@ -152,3 +152,195 @@ class UserWithLocation(BaseModel):
     speed: Optional[float] = None
     heading: Optional[float] = None
     timestamp: Optional[datetime] = None
+
+
+# NEW: Organization Schemas
+
+
+class CreateOrganization(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class OrganizationResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str]
+    logo: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class AddOrganizationMember(BaseModel):
+    user_id: UUID
+    role: str  # FOUNDER, CO_FOUNDER, ADMIN
+
+
+class OrganizationMemberResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    user_id: UUID
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    # Populated user info
+    user: Optional[UserResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+
+# NEW: Vehicle Schemas
+
+
+class CreateVehicle(BaseModel):
+    make: str = Field(..., min_length=1, max_length=100)
+    model: str = Field(..., min_length=1, max_length=100)
+    year: Optional[int] = Field(None, ge=1900, le=2100)
+    license_plate: Optional[str] = Field(None, max_length=20)
+    is_primary: bool = False
+    is_pillion: bool = False
+
+
+class VehicleResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    make: str
+    model: str
+    year: Optional[int]
+    license_plate: Optional[str]
+    is_primary: bool
+    is_pillion: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# NEW: Ride Schemas
+
+
+class CreateRide(BaseModel):
+    organization_id: UUID
+    name: str = Field(..., min_length=1, max_length=100)
+    max_riders: Optional[int] = Field(30, ge=1, le=100)
+    checkpoints: List['CreateCheckpoint']
+
+
+class CreateCheckpoint(BaseModel):
+    type: str  # MEETUP, DESTINATION, DISBURSEMENT
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    radius_meters: Optional[int] = Field(50, ge=10, le=1000)
+
+
+class UpdateRide(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    status: Optional[str] = None  # PLANNED, ACTIVE, COMPLETED
+    max_riders: Optional[int] = Field(None, ge=1, le=100)
+
+
+class RideResponse(BaseModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    status: str
+    max_riders: int
+    created_at: datetime
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    updated_at: datetime
+    
+    # Relationships
+    organization: Optional['OrganizationResponse'] = None
+    checkpoints: Optional[List['CheckpointResponse']] = None
+    participants: Optional[List['RideParticipantResponse']] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class CheckpointResponse(BaseModel):
+    id: UUID
+    ride_id: UUID
+    type: str
+    latitude: float
+    longitude: float
+    radius_meters: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class JoinRide(BaseModel):
+    phone_number: str
+    otp_code: str
+    vehicle_info_id: Optional[UUID] = None
+    is_pillion: Optional[bool] = False
+
+
+class RideJoinResponse(BaseModel):
+    participant: 'RideParticipantResponse'
+    ride: 'RideResponse'
+    message: str
+
+
+class UpdateRideParticipant(BaseModel):
+    role: str  # RIDER, LEAD, MARSHAL, SWEEP
+
+
+class RideParticipantResponse(BaseModel):
+    id: UUID
+    ride_id: UUID
+    user_id: UUID
+    vehicle_info_id: Optional[UUID] = None
+    role: str
+    registered_at: datetime
+    updated_at: datetime
+    
+    # Relationships
+    user: Optional['UserResponse'] = None
+    vehicle_info: Optional['VehicleResponse'] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class CheckInRequest(BaseModel):
+    checkpoint_type: str  # MEETUP, DESTINATION, DISBURSEMENT
+    latitude: float
+    longitude: float
+
+
+class CheckInResponse(BaseModel):
+    attendance_record: 'AttendanceRecordResponse'
+    message: str
+
+
+class AttendanceRecordResponse(BaseModel):
+    id: UUID
+    ride_id: UUID
+    user_id: UUID
+    checkpoint_type: str
+    reached_at: datetime
+    latitude: float
+    longitude: float
+    distance_traveled_km: Optional[float]
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class RideHistoryResponse(BaseModel):
+    rides: List['RideResponse']
+    attendance_records: List['AttendanceRecordResponse']

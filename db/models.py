@@ -184,8 +184,9 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
-    name = Column(String(100), nullable=False)
+    name = Column(String(100), nullable=False, unique=True, index=True)
     description = Column(String(500), nullable=True)
+    logo = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
