@@ -136,7 +136,7 @@ async def toggle_member_web(
         logger.exception(f"Error toggling member: {e}")
 
     return RedirectResponse(
-        url=request.url_for('organization_members_page', org_id=str(org_id)),
+        url=request.url_for('organization_detail_page', org_id=str(org_id)),
         status_code=303
     )
 

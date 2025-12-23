@@ -265,9 +265,15 @@ class MemberService:
     ) -> Tuple[bool, Optional[OrganizationMember], Optional[str]]:
         """Toggle member active status"""
         try:
-            # Get updater's role
+
+            updater = UserService.get_user_by_id(db=db, user_id=updater_id)
+
+            if not updater:
+                return False, None, None, "Inviter not found"
+
+            is_super_admin = updater.role == UserRole.SUPER_ADMIN
             updater_role = MemberService.get_user_role_in_org(db, org_id, updater_id)
-            if not updater_role:
+            if not is_super_admin and not updater_role:
                 return False, None, "You are not authorized"
 
             # Get target member
@@ -280,8 +286,9 @@ class MemberService:
             if not member:
                 return False, None, "Member not found"
 
+
             # Only founder can manage co-founders and other founders
-            if not MemberService.can_manage_member(updater_role, member.role):
+            if not is_super_admin and not MemberService.can_manage_member(updater_role, member.role):
                 return False, None, "You cannot manage this member"
 
             # Toggle status

@@ -229,18 +229,21 @@ body {
 .table th {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
-    padding: 1rem;
+    padding: 0.5rem;
     text-align: left;
     font-weight: 600;
     border-bottom: 2px solid var(--border-color);
 }
 
 .table td {
-    padding: 1rem;
+    padding: 0.5rem;
     border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
 }
-
+.table td:last-child{
+    display: flex;
+    justify-content: right;
+}
 .table tr:hover {
     background-color: var(--bg-secondary);
 }
