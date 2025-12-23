@@ -178,7 +178,7 @@
         <div id="upcoming" class="tab-content active">
             {% if upcoming_rides %}
                 {% for ride in upcoming_rides %}
-                <div class="ride-card" onclick="window.location.href='{{ url_for('ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
+                <div class="ride-card" onclick="window.location.href='{{ url_for('org_ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
                     <div class="ride-header">
                         <div>
                             <div class="ride-title">{{ ride.name }}</div>
@@ -220,7 +220,7 @@
         <div id="active" class="tab-content">
             {% if active_rides %}
                 {% for ride in active_rides %}
-                <div class="ride-card" onclick="window.location.href='{{ url_for('ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
+                <div class="ride-card" onclick="window.location.href='{{ url_for('org_ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
                     <div class="ride-header">
                         <div>
                             <div class="ride-title">{{ ride.name }}</div>
@@ -248,7 +248,7 @@
         <div id="past" class="tab-content">
             {% if past_rides %}
                 {% for ride in past_rides %}
-                <div class="ride-card" onclick="window.location.href='{{ url_for('ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
+                <div class="ride-card" onclick="window.location.href='{{ url_for('org_ride_detail_page', org_id=organization.id, ride_id=ride.id) }}'">
                     <div class="ride-header">
                         <div>
                             <div class="ride-title">{{ ride.name }}</div>

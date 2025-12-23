@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from db.db_conn import get_db
-from db.models import OrganizationMember, User
+from db.models import OrganizationMember, User, RideParticipant, Organization, Ride
 from db.schemas import OrganizationListResponse, UpdateOrganization
 from db.schemas.organization import (
     CreateOrganization, AddOrganizationMember, OrganizationResponse,
@@ -563,6 +563,80 @@ async def organization_detail_page(
             "members_count": len(members_data),
             "active_rides": active_rides,
             "total_rides": total_rides,
+            "user_role": user_role.value if user_role else None
+        }
+    )
+
+
+@router.get("/{org_id}/rides/{ride_id}", name="org_ride_detail_page")
+async def org_ride_detail_page(
+        request: Request,
+        org_id: UUID,
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Ride detail page (Web)"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
+        return RedirectResponse(url=request.url_for('organization_rides_page', org_id=str(org_id)))
+
+    organization = db.query(Organization).filter(Organization.id == org_id).first()
+
+    # Get participants
+    participants = db.query(RideParticipant).filter(
+        RideParticipant.ride_id == ride_id
+    ).all()
+
+    participants_data = []
+    for p in participants:
+        user = db.query(User).filter(User.id == p.user_id).first()
+        participants_data.append({
+            "id": str(p.id),
+            "user_id": str(p.user_id),
+            "user_name": user.name if user else "Unknown",
+            "user_phone": user.phone_number if user else "N/A",
+            "role": p.role.value,
+            "has_paid": p.has_paid,
+            "paid_amount": p.paid_amount,
+            "payment_date": p.payment_date.strftime("%Y-%m-%d") if p.payment_date else None,
+            "registered_at": p.registered_at.strftime("%Y-%m-%d")
+        })
+
+    # Get user role
+    from services.member_service import MemberService
+    user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+
+    # Generate share link
+    share_link = f"{request.url_for('join_ride_page', ride_id=str(ride_id))}"
+
+    return jinja_templates.TemplateResponse(
+        "ride/ride_detail.html",
+        {
+            "request": request,
+            "user": current_user,
+            "active_page": "organizations",
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name
+            },
+            "ride": {
+                "id": str(ride.id),
+                "name": ride.name,
+                "status": ride.status.value,
+                "max_riders": ride.max_riders,
+                "participants_count": len(participants),
+                "spots_left": ride.max_riders - len(participants),
+                "requires_payment": ride.requires_payment,
+                "amount": ride.amount,
+                "created_at": ride.created_at.strftime("%Y-%m-%d"),
+                "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None,
+                "share_link": share_link
+            },
+            "participants": participants_data,
             "user_role": user_role.value if user_role else None
         }
     )
