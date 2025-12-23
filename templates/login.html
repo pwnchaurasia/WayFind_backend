@@ -26,6 +26,10 @@
                 <input type="tel" class="form-control" id="phone_number" name="phone_number" placeholder="Enter your phone number" required>
             </div>
 
+            {% if forward_url %}
+                <input type="hidden" name="forward_url" value="{{ forward_url }}">
+            {% endif %}
+
             <div class="form-group">
                 <label class="form-label" for="password">Password</label>
                 <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>

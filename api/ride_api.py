@@ -7,11 +7,12 @@ from uuid import UUID
 from datetime import datetime
 
 from db.db_conn import get_db
-from db.models import Ride, RideParticipant, RideCheckpoint, User, OrganizationMember, Organization
+from db.models import Ride, RideParticipant, RideCheckpoint, User, OrganizationMember, Organization, UserRideInformation
 from db.schemas.ride import (
     CreateRide, UpdateRide, RideResponse,
     RideParticipantResponse, MarkPaymentRequest
 )
+from utils import ParticipantRole
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideStatus
 from utils.templates import jinja_templates
@@ -185,7 +186,7 @@ async def get_ride_api(
         )
 
 
-@router.post("/api/{ride_id}/join")
+@router.get("/{ride_id}/join", name='join_ride')
 async def join_ride_api(
         ride_id: UUID,
         vehicle_info_id: Optional[UUID] = None,
@@ -258,7 +259,7 @@ async def join_ride_api(
         )
 
 
-@router.post("/api/{ride_id}/mark-payment")
+@router.post("{ride_id}/mark-payment")
 async def mark_payment_api(
         ride_id: UUID,
         payment_data: MarkPaymentRequest,
@@ -501,7 +502,7 @@ async def ride_detail_page(
     user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
 
     # Generate share link
-    share_link = f"{request.base_url}join-ride/{str(ride_id)}"
+    share_link = f"{request.url_for('join_ride_page', ride_id=str(ride_id))}"
 
     return jinja_templates.TemplateResponse(
         "ride/ride_detail.html",
@@ -530,3 +531,203 @@ async def ride_detail_page(
             "user_role": user_role.value if user_role else None
         }
     )
+
+
+@router.get("/join/{ride_id}", name='join_ride_page')
+async def join_ride_page(
+        request: Request,
+        ride_id: UUID,
+        db: Session = Depends(get_db)
+):
+    """
+    Smart join ride handler - works for both web and mobile
+    1. Check if user is authenticated
+    2. If not -> redirect to login with return URL
+    3. If yes -> show join form
+    """
+    try:
+        # Try to get current user from cookie (web) or token (will fail if not authenticated)
+        from fastapi import Cookie
+        access_token = request.cookies.get("access_token")
+
+        # Get ride details
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            return jinja_templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "error": "Ride not found",
+                    "message": "This ride doesn't exist or has been deleted."
+                }
+            )
+
+        organization = db.query(Organization).filter(Organization.id == ride.organization_id).first()
+
+        # Check if user is authenticated
+        if not access_token:
+            # Not authenticated - redirect to login with return URL
+            next_path = request.url_for('join_ride_page', ride_id=ride_id).path
+            url = request.url_for('login_page').include_query_params(forward_url=next_path)
+            return RedirectResponse(
+                url=url,
+                status_code=302
+            )
+
+        # User is authenticated - verify token
+        from utils.app_helper import verify_user_from_token
+        is_verified, msg, current_user = verify_user_from_token(access_token, db)
+
+        if not is_verified or not current_user:
+            # Invalid token - redirect to login
+            return RedirectResponse(
+                url=f"/login?next=/v1/rides/join/{ride_id}",
+                status_code=302
+            )
+
+        # Check if already joined
+        existing = db.query(RideParticipant).filter(
+            RideParticipant.ride_id == ride_id,
+            RideParticipant.user_id == current_user.id
+        ).first()
+
+        if existing:
+            # Already joined - redirect to ride detail
+            return RedirectResponse(
+                url=f"/v1/organizations/{organization.id}/rides/{ride_id}?message=already_joined",
+                status_code=302
+            )
+
+        # Check capacity
+        current_count = db.query(func.count(RideParticipant.id)).filter(
+            RideParticipant.ride_id == ride_id
+        ).scalar() or 0
+
+        if current_count >= ride.max_riders:
+            return jinja_templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "error": "Ride is Full",
+                    "message": "This ride has reached maximum capacity."
+                }
+            )
+
+        # Get user's vehicles (if any)
+        vehicles = db.query(UserRideInformation).filter(
+            UserRideInformation.user_id == current_user.id
+        ).all()
+
+        # Show join form
+        return jinja_templates.TemplateResponse(
+            "ride/join_ride.html",
+            {
+                "request": request,
+                "user": current_user,
+                "ride": {
+                    "id": str(ride.id),
+                    "name": ride.name,
+                    "organization_name": organization.name,
+                    "max_riders": ride.max_riders,
+                    "participants_count": current_count,
+                    "spots_left": ride.max_riders - current_count,
+                    "requires_payment": ride.requires_payment,
+                    "amount": ride.amount
+                },
+                "vehicles": [
+                    {
+                        "id": str(v.id),
+                        "make": v.make,
+                        "model": v.model,
+                        "license_plate": v.license_plate or "N/A"
+                    } for v in vehicles
+                ]
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error in join ride page: {e}")
+        return jinja_templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "error": "Something went wrong",
+                "message": "Please try again later."
+            }
+        )
+
+@router.post("/join/{ride_id}/confirm", name='confirm_join_ride')
+async def confirm_join_ride(
+        request: Request,
+        ride_id: UUID,
+        vehicle_info_id: Optional[str] = Form(None),
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Confirm joining ride after filling form"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Check if already joined
+        existing = db.query(RideParticipant).filter(
+            RideParticipant.ride_id == ride_id,
+            RideParticipant.user_id == current_user.id
+        ).first()
+
+        if existing:
+            return RedirectResponse(
+                url=f"/v1/organizations/{ride.organization_id}/rides/{ride_id}",
+                status_code=303
+            )
+
+        # Check capacity
+        current_count = db.query(func.count(RideParticipant.id)).filter(
+            RideParticipant.ride_id == ride_id
+        ).scalar() or 0
+
+        if current_count >= ride.max_riders:
+            return jinja_templates.TemplateResponse(
+                "error.html",
+                {
+                    "request": request,
+                    "error": "Ride is Full",
+                    "message": "Sorry, this ride filled up while you were joining."
+                }
+            )
+
+        # Create participant
+        participant = RideParticipant(
+            ride_id=ride_id,
+            user_id=current_user.id,
+            vehicle_info_id=UUID(vehicle_info_id) if vehicle_info_id and vehicle_info_id != "none" else None,
+            role=ParticipantRole.RIDER,
+            has_paid=False if ride.requires_payment else True,
+            paid_amount=0.0
+        )
+        db.add(participant)
+        db.commit()
+
+        logger.info(f"User {current_user.id} joined ride {ride_id}")
+
+        # Redirect to ride detail with success message
+        return RedirectResponse(
+            url=f"/v1/organizations/{ride.organization_id}/rides/{ride_id}?message=joined_successfully",
+            status_code=303
+        )
+
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error confirming join: {e}")
+        return jinja_templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "error": "Failed to join ride",
+                "message": "Please try again."
+            }
+        )

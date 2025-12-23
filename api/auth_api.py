@@ -7,7 +7,8 @@ from db.db_conn import get_db
 from db.schemas import UserRegistration, OTPVerification
 from services.user_service import UserService
 from utils import app_logger, resp_msgs
-from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token
+from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token, \
+    is_safe_url
 from utils.templates import jinja_templates
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -152,8 +153,15 @@ def verify_access_token(access_token: str = Depends(oauth2_scheme), db: Session 
 
 
 @router.get("/login", name="login_page")
-async def root(request: Request):
-    return jinja_templates.TemplateResponse("login.html", {"request": request})
+async def login_page(request: Request, forward_url: str = None):
+    """Render login page"""
+    return jinja_templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "forward_url": forward_url
+        }
+    )
 
 
 
@@ -164,7 +172,9 @@ async def login(
         db: Session = Depends(get_db),
         phone_number: str = Form(...),
         password: str = Form(...),
-        remember: bool = Form(False),):
+        remember: bool = Form(False),
+        forward_url: str = Form(None),
+):
     try:
         user = UserService.get_user_by_phone_number(db=db, phone_number=phone_number)
         if not user:
@@ -179,7 +189,9 @@ async def login(
         access_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
 
-        response = RedirectResponse(url=request.url_for('dashboard_page'), status_code=302)
+        target = (forward_url if is_safe_url(forward_url) else None) or request.url_for("dashboard_page")
+
+        response = RedirectResponse(url=target, status_code=302)
         response.set_cookie(
             key="access_token",
             value=access_token,

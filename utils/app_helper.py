@@ -184,3 +184,8 @@ def generate_random_group_code():
 
 def hash_password(password: str):
     return get_password_hash(password=password)
+
+def is_safe_url(url: str) -> bool:
+    # 1. Must start with /
+    # 2. Must NOT start with // (to prevent protocol-relative redirects)
+    return url.startswith("/") and not url.startswith("//") if url else None

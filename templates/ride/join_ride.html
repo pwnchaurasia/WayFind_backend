@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join {{ ride.name }} - Squadra</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        body.join-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .join-container {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+            margin: 2rem;
+        }
+
+        .ride-info {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ride-title {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .org-name {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .ride-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-green);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .payment-alert {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid var(--warning-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .payment-alert-title {
+            color: var(--warning-color);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .payment-alert-text {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="join-page">
+    <div class="join-container">
+        <!-- Ride Info -->
+        <div class="ride-info">
+            <div class="ride-title">{{ ride.name }}</div>
+            <div class="org-name">{{ ride.organization_name }}</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="ride-stats">
+            <div class="stat-box">
+                <div class="stat-value">{{ ride.participants_count }}/{{ ride.max_riders }}</div>
+                <div class="stat-label">Riders</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ ride.spots_left }}</div>
+                <div class="stat-label">Spots Left</div>
+            </div>
+        </div>
+
+        <!-- Payment Warning -->
+        {% if ride.requires_payment %}
+        <div class="payment-alert">
+            <div class="payment-alert-title">💰 Payment Required</div>
+            <div class="payment-alert-text">
+                This ride requires a payment of ₹{{ ride.amount }} per rider.
+                You can pay the admin after joining.
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Join Form -->
+        <form method="POST" action="{{ url_for('confirm_join_ride', ride_id=ride.id) }}">
+            <div class="form-group">
+                <label class="form-label" for="vehicle_info_id">Select Your Vehicle (Optional)</label>
+                <select class="form-control" id="vehicle_info_id" name="vehicle_info_id">
+                    <option value="none">No vehicle / I'm a pillion rider</option>
+                    {% for vehicle in vehicles %}
+                    <option value="{{ vehicle.id }}">
+                        {{ vehicle.make }} {{ vehicle.model }}
+                        {% if vehicle.license_plate != 'N/A' %}
+                        ({{ vehicle.license_plate }})
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem; display: block;">
+                    You can add vehicles later in your profile
+                </small>
+            </div>
+
+            <div style="margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    Join This Ride 🏍️
+                </button>
+            </div>
+        </form>
+
+        <!-- User Info -->
+        <div style="margin-top: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem;">
+            Joining as: <strong style="color: var(--text-primary);">{{ user.name or user.phone_number }}</strong>
+        </div>
+    </div>
+</body>
+</html>
