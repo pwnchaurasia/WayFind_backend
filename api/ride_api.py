@@ -12,7 +12,7 @@ from db.schemas.ride import (
     CreateRide, UpdateRide, RideResponse,
     RideParticipantResponse, MarkPaymentRequest
 )
-from utils import ParticipantRole
+from utils import ParticipantRole, RideType
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideStatus
 from utils.templates import jinja_templates
@@ -338,7 +338,8 @@ async def create_ride_web(
         amount: float = Form(0.0),
         # Checkpoints (we'll handle these as JSON or separate forms)
         current_user=Depends(get_current_user_web),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_db),
+        ride_type: str = Form(...),
 ):
     """Create ride (Web)"""
     if not current_user:
@@ -367,7 +368,8 @@ async def create_ride_web(
             scheduled_date=scheduled_dt,
             requires_payment=requires_payment,
             amount=amount,
-            status=RideStatus.PLANNED
+            status=RideStatus.PLANNED,
+            ride_type=ride_type
         )
         db.add(ride)
         db.commit()
