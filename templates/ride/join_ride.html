@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join {{ ride.name }} - Squadra</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
-    <style>
-        body.join-page {
+{% extends "partials/base.html" %}
+
+{% block title %} Join {{ ride.name  }} - Squadra{% endblock %}
+
+{% block extra_css %}
+<style>
+        div.join-page {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -87,8 +85,10 @@
             font-size: 0.875rem;
         }
     </style>
-</head>
-<body class="join-page">
+{% endblock %}
+
+{% block content %}
+<div class="join-page">
     <div class="join-container">
         <!-- Ride Info -->
         <div class="ride-info">
@@ -151,5 +151,5 @@
             Joining as: <strong style="color: var(--text-primary);">{{ user.name or user.phone_number }}</strong>
         </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}
