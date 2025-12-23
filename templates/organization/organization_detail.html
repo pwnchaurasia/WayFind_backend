@@ -126,6 +126,14 @@
                         {% if organization.is_active %}Active{% else %}Inactive{% endif %}
                     </span>
                 </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('organization_rides_page', org_id=organization.id) }}" class="btn btn-primary btn-sm">
+                        🏍️ Rides
+                    </a>
+                    {% if user_role in ['founder', 'co_founder'] or user.role.value == 'super_admin' %}
+                    <button class="btn btn-primary btn-sm" onclick="openModal()">Add Member</button>
+                    {% endif %}
+                </div>
             </div>
         </div>
 

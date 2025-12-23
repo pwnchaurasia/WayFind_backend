@@ -546,7 +546,7 @@ async def organization_detail_page(
     ).scalar() or 0
 
     return jinja_templates.TemplateResponse(
-        "organization_detail.html",
+        "organization/organization_detail.html",
         {
             "request": request,
             "user": current_user,

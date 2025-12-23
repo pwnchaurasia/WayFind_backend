@@ -265,6 +265,9 @@ class Ride(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     ended_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    # Payment fields
+    requires_payment = Column(Boolean, default=False, nullable=False)
+    amount = Column(Float, default=0.0, nullable=False)
 
     # Relationships
     organization = relationship("Organization", back_populates="rides")
@@ -306,6 +309,11 @@ class RideParticipant(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     vehicle_info_id = Column(UUID(as_uuid=True), ForeignKey("user_ride_information.id"), nullable=True, index=True)
     role = Column(Enum(ParticipantRole), default=ParticipantRole.RIDER, nullable=False)
+    # Payment tracking
+    has_paid = Column(Boolean, default=False, nullable=False)
+    paid_amount = Column(Float, default=0.0, nullable=False)
+    payment_date = Column(DateTime(timezone=True), nullable=True)
+
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

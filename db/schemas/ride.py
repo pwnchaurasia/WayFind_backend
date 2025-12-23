@@ -28,6 +28,8 @@ class CreateRide(BaseModel):
     organization_id: UUID
     name: str = Field(..., min_length=1, max_length=100)
     max_riders: Optional[int] = Field(30, ge=1, le=100)
+    requires_payment: bool = False
+    amount: float = Field(0.0, ge=0.0)
     checkpoints: List[CreateCheckpoint]
 
 
@@ -35,6 +37,8 @@ class UpdateRide(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     status: Optional[str] = Field(None, pattern="^(planned|active|completed)$")
     max_riders: Optional[int] = Field(None, ge=1, le=100)
+    requires_payment: Optional[bool] = None
+    amount: Optional[float] = Field(None, ge=0.0)
 
 
 class RideResponse(BaseModel):
@@ -43,6 +47,8 @@ class RideResponse(BaseModel):
     name: str
     status: str
     max_riders: int
+    requires_payment: bool
+    amount: float
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
@@ -68,6 +74,9 @@ class RideParticipantResponse(BaseModel):
     user_id: UUID
     vehicle_info_id: Optional[UUID] = None
     role: str
+    has_paid: bool
+    paid_amount: float
+    payment_date: Optional[datetime]
     registered_at: datetime
     updated_at: datetime
 
@@ -84,3 +93,7 @@ class RideHistoryResponse(BaseModel):
     rides: List[RideResponse]
     total_distance_km: float = 0
     total_rides: int = 0
+
+class MarkPaymentRequest(BaseModel):
+    participant_id: UUID
+    amount: float = Field(..., ge=0.0)
