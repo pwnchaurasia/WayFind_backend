@@ -1,0 +1,117 @@
+{% extends "partials/base.html" %}
+{% block title %}Register - Squadra{% endblock %}
+
+{% block extra_css %}
+<style>
+body { background: var(--bg-primary); }
+.register-container { 
+    background: var(--bg-card); 
+    border-radius: 16px; 
+    padding: 2rem; 
+    max-width: 500px; 
+    margin: 3rem auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.register-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.register-header h2 {
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+.register-header p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+.section-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 1.5rem 0;
+    padding-top: 1.5rem;
+}
+.optional-badge {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="register-container">
+    <div class="register-header">
+        <h2>Create Account</h2>
+        <p>Join Squadra and start riding with your community</p>
+    </div>
+
+    {% if error %}
+    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+        <p style="margin: 0; color: var(--error-color); font-size: 0.875rem;">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('register') }}">
+        {% if forward_url %}
+        <input type="hidden" name="forward_url" value="{{ forward_url }}">
+        {% endif %}
+
+        <!-- Basic Info -->
+        <div class="form-group">
+            <label class="form-label">Name *</label>
+            <input type="text" class="form-control" name="name" required placeholder="Your full name">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Phone Number *</label>
+            <input type="tel" class="form-control" name="phone_number" required placeholder="10 digit mobile number">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" placeholder="your@email.com">
+            <small style="color: var(--text-secondary); font-size: 0.75rem;">Optional, but recommended for notifications</small>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Password *</label>
+            <input type="password" class="form-control" name="password" required minlength="6" placeholder="Minimum 6 characters">
+        </div>
+
+        <!-- Vehicle Info (Optional) -->
+        <div class="section-divider">
+            <h4 style="color: var(--text-primary); margin-bottom: 1rem;">
+                Vehicle Information 
+                <span class="optional-badge">Optional</span>
+            </h4>
+            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+                Add your vehicle now or later in your profile
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Make</label>
+            <input type="text" class="form-control" name="vehicle_make" placeholder="e.g., Royal Enfield, Bajaj, Hero">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Model</label>
+            <input type="text" class="form-control" name="vehicle_model" placeholder="e.g., Classic 350, Pulsar 220">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+            Create Account
+        </button>
+    </form>
+
+    <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.875rem;">
+        Already have an account? 
+        <a href="/v1/auth/login{% if forward_url %}?forward_url={{ forward_url }}{% endif %}"
+           style="color: var(--accent-green); text-decoration: none; font-weight: 600;">
+            Login here
+        </a>
+    </p>
+</div>
+{% endblock %}

@@ -1,12 +1,15 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, status, Request, Response, Form
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse, RedirectResponse
 
 from db.db_conn import get_db
+from db.models import User, UserRideInformation
 from db.schemas import UserRegistration, OTPVerification
 from services.user_service import UserService
-from utils import app_logger, resp_msgs
+from utils import app_logger, resp_msgs, UserRole
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token, \
     is_safe_url
 from utils.templates import jinja_templates
@@ -156,7 +159,7 @@ def verify_access_token(access_token: str = Depends(oauth2_scheme), db: Session 
 async def login_page(request: Request, forward_url: str = None):
     """Render login page"""
     return jinja_templates.TemplateResponse(
-        "login.html",
+        "auth/login.html",
         {
             "request": request,
             "forward_url": forward_url
@@ -212,7 +215,7 @@ async def login(
     except Exception as e:
         logger.exception(f"Login error: {e}")
         return jinja_templates.TemplateResponse(
-            "login.html",
+            "auth/login.html",
             {
                 "request": request,
                 "error": "An error occurred. Please try again."
@@ -227,3 +230,89 @@ async def logout(request: Request, response: Response):
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
     return response
+
+
+@router.get("/register", name="register_page")
+async def register_page(request: Request, forward_url: str = None):
+    """Show registration page"""
+    return jinja_templates.TemplateResponse(
+        "auth/register.html",
+        {
+            "request": request,
+            "forward_url": forward_url
+        }
+    )
+
+
+@router.post("/register", name="register")
+async def register(
+        request: Request,
+        name: str = Form(...),
+        phone_number: str = Form(...),
+        email: Optional[str] = Form(None),
+        password: str = Form(...),
+        vehicle_make: Optional[str] = Form(None),
+        vehicle_model: Optional[str] = Form(None),
+        forward_url: Optional[str] = Form(None),
+        db: Session = Depends(get_db)
+):
+    """Process registration"""
+    try:
+        # Check if user exists
+        existing = db.query(User).filter(User.phone_number == phone_number).first()
+        if existing:
+            return jinja_templates.TemplateResponse(
+                "auth/register.html",
+                {
+                    "request": request,
+                    "forward_url": forward_url,
+                    "error": "Phone number already registered. Please login."
+                }
+            )
+
+        # Create user
+        from utils.app_helper import hash_password
+        user = User(
+            name=name,
+            phone_number=phone_number,
+            email=email,
+            hashed_password=hash_password(password),
+            is_active=True,
+            role=UserRole.NORMAL_USER
+        )
+        db.add(user)
+        db.flush()
+
+        # Create vehicle if provided
+        if vehicle_make and vehicle_model:
+            vehicle = UserRideInformation(
+                user_id=user.id,
+                make=vehicle_make,
+                model=vehicle_model,
+                is_primary=True
+            )
+            db.add(vehicle)
+
+        db.commit()
+
+        access_token = create_auth_token(user)
+        refresh_token = create_refresh_token(user)
+
+        # Redirect
+        redirect_url = forward_url if forward_url else "/dashboard"
+        response = RedirectResponse(url=redirect_url, status_code=303)
+        response.set_cookie("access_token", access_token, httponly=True, max_age=86400)
+
+        return response
+
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Registration error: {e}")
+        return jinja_templates.TemplateResponse(
+            "auth/register.html",
+            {
+                "request": request,
+                "forward_url": forward_url,
+                "error": "Registration failed. Please try again."
+            }
+        )

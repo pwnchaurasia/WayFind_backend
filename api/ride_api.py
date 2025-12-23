@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
+import os
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Body
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -12,7 +13,7 @@ from db.schemas.ride import (
     CreateRide, UpdateRide, RideResponse,
     RideParticipantResponse, MarkPaymentRequest
 )
-from utils import ParticipantRole, RideType
+from utils import ParticipantRole, RideType, CheckpointType
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideStatus
 from utils.templates import jinja_templates
@@ -369,7 +370,7 @@ async def create_ride_web(
             requires_payment=requires_payment,
             amount=amount,
             status=RideStatus.PLANNED,
-            ride_type=ride_type
+            ride_type=RideType(ride_type)
         )
         db.add(ride)
         db.commit()
@@ -398,14 +399,10 @@ async def join_ride_page(
     """
     Smart join ride handler - works for both web and mobile
     1. Check if user is authenticated
-    2. If not -> redirect to login with return URL
+    2. If not -> redirect to login with forward_url
     3. If yes -> show join form
     """
     try:
-        # Try to get current user from cookie (web) or token (will fail if not authenticated)
-        from fastapi import Cookie
-        access_token = request.cookies.get("access_token")
-
         # Get ride details
         ride = db.query(Ride).filter(Ride.id == ride_id).first()
         if not ride:
@@ -421,14 +418,13 @@ async def join_ride_page(
         organization = db.query(Organization).filter(Organization.id == ride.organization_id).first()
 
         # Check if user is authenticated
+        access_token = request.cookies.get("access_token")
+
         if not access_token:
-            # Not authenticated - redirect to login with return URL
+            # Not authenticated - redirect to login with forward_url
             next_path = request.url_for('join_ride_page', ride_id=ride_id).path
-            url = request.url_for('login_page').include_query_params(forward_url=next_path)
-            return RedirectResponse(
-                url=url,
-                status_code=302
-            )
+            login_url = request.url_for('login_page').include_query_params(forward_url=next_path)
+            return RedirectResponse(url=str(login_url), status_code=302)
 
         # User is authenticated - verify token
         from utils.app_helper import verify_user_from_token
@@ -437,11 +433,8 @@ async def join_ride_page(
         if not is_verified or not current_user:
             # Invalid token - redirect to login
             next_path = request.url_for('join_ride_page', ride_id=ride_id).path
-            url = request.url_for('login_page').include_query_params(forward_url=next_path)
-            return RedirectResponse(
-                url=url,
-                status_code=302
-            )
+            login_url = request.url_for('login_page').include_query_params(forward_url=next_path)
+            return RedirectResponse(url=str(login_url), status_code=302)
 
         # Check if already joined
         existing = db.query(RideParticipant).filter(
@@ -451,11 +444,12 @@ async def join_ride_page(
 
         if existing:
             # Already joined - redirect to ride detail
-            url = request.url_for('org_ride_detail_page', org_id=ride.organization_id, ride_id=ride_id).include_query_params(message="already_joined")
-            return RedirectResponse(
-                url=url,
-                status_code=302
-            )
+            ride_detail_url = request.url_for(
+                'ride_detail_page',
+                org_id=ride.organization_id,
+                ride_id=ride_id
+            ).include_query_params(message="already_joined")
+            return RedirectResponse(url=str(ride_detail_url), status_code=302)
 
         # Check capacity
         current_count = db.query(func.count(RideParticipant.id)).filter(
@@ -472,7 +466,7 @@ async def join_ride_page(
                 }
             )
 
-        # Get user's vehicles (if any)
+        # Get user's vehicles
         vehicles = db.query(UserRideInformation).filter(
             UserRideInformation.user_id == current_user.id
         ).all()
@@ -590,3 +584,108 @@ async def confirm_join_ride(
                 "message": "Please try again."
             }
         )
+
+
+@router.get("/{org_id}/rides/{ride_id}/checkpoints/add", name="add_checkpoints_page")
+async def add_checkpoints_page(
+        request: Request,
+        org_id: UUID,
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Add checkpoints page"""
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    organization = db.query(Organization).filter(Organization.id == org_id).first()
+
+    locationiq_key = os.getenv("LOCATIONIQ_API_KEY")
+
+    return jinja_templates.TemplateResponse(
+        "add_checkpoints.html",
+        {
+            "request": request,
+            "user": current_user,
+            "organization": {"id": str(org_id), "name": organization.name},
+            "ride": {"id": str(ride_id), "name": ride.name},
+            "locationiq_key": locationiq_key
+        }
+    )
+
+
+@router.post("/{ride_id}/checkpoints/add")
+async def add_checkpoint_api(
+        ride_id: UUID,
+        checkpoint_data: dict = Body(...),
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Add single checkpoint"""
+    checkpoint = RideCheckpoint(
+        ride_id=ride_id,
+        type=CheckpointType(checkpoint_data['type']),
+        latitude=checkpoint_data['latitude'],
+        longitude=checkpoint_data['longitude'],
+        address=checkpoint_data.get('address')
+    )
+    db.add(checkpoint)
+    db.commit()
+    return {"status": "success"}
+
+
+@router.post("/{ride_id}/finalize")
+async def finalize_ride_web(
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Change ride status from DRAFT to PLANNED"""
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    ride.status = RideStatus.PLANNED
+    db.commit()
+    return {"status": "success"}
+
+
+@router.post("/join/{ride_id}/confirm", name="confirm_join_ride")
+async def confirm_join_ride(
+        request: Request,
+        ride_id: UUID,
+        vehicle_info_id: Optional[str] = Form(None),
+        new_vehicle_make: Optional[str] = Form(None),
+        new_vehicle_model: Optional[str] = Form(None),
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Existing user join ride"""
+    try:
+        # Create new vehicle if provided
+        final_vehicle_id = None
+        if new_vehicle_make and new_vehicle_model:
+            vehicle = UserRideInformation(
+                user_id=current_user.id,
+                make=new_vehicle_make,
+                model=new_vehicle_model,
+                is_primary=False
+            )
+            db.add(vehicle)
+            db.flush()
+            final_vehicle_id = vehicle.id
+        elif vehicle_info_id:
+            final_vehicle_id = UUID(vehicle_info_id)
+
+        # Join ride
+        participant = RideParticipant(
+            ride_id=ride_id,
+            user_id=current_user.id,
+            vehicle_info_id=final_vehicle_id,
+            role=ParticipantRole.RIDER,
+            has_paid=False
+        )
+        db.add(participant)
+        db.commit()
+
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        return RedirectResponse(url=f"/v1/organizations/{ride.organization_id}/rides/{ride_id}", status_code=303)
+
+    except Exception as e:
+        db.rollback()
+        return RedirectResponse(url=f"/v1/rides/join/{ride_id}", status_code=303)

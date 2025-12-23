@@ -1,0 +1,58 @@
+{% extends "partials/base.html" %}
+{% block title %} Login - Squadra{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+    <div class="auth-page">
+
+        <div class="login-container">
+            <div class="logo">
+                <div class="logo-icon">✈️</div>
+                <div class="logo-text">Squadra</div>
+                <div class="logo-subtitle">Admin Dashboard</div>
+            </div>
+
+            {% if error %}
+            <div class="alert alert-danger">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/v1/auth/login" class="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="phone_number">Phone Number</label>
+                    <input type="tel" class="form-control" id="phone_number" name="phone_number" placeholder="Enter your phone number" required>
+                </div>
+
+                {% if forward_url %}
+                    <input type="hidden" name="forward_url" value="{{ forward_url }}">
+                {% endif %}
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+
+                <div class="remember-me">
+                    <input type="checkbox" id="remember" name="remember" value="true">
+                    <label for="remember" class="checkbox-label">Remember me</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
+
+            <div class="forgot-password">
+                <a href="/forgot-password">Forgot Password?</a>
+            </div>
+            <p style="text-align: center; margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.875rem;">
+                Don't have an account?
+                <a href="/v1/auth/register{% if forward_url %}?forward_url={{ forward_url }}{% endif %}"
+                   style="color: var(--accent-green); text-decoration: none; font-weight: 600;">
+                    Register here
+                </a>
+            </p>
+        </div>
+    </div>
+{% endblock %}
