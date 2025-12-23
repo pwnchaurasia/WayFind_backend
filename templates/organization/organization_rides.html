@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ organization.name }} - Rides</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
-    <style>
+{% extends "partials/base.html" %}
+
+{% block title %}{{ organization.name }} - Rides{% endblock %}
+
+{% block extra_css %}
+<style>
         .modal {
             display: none;
             position: fixed;
@@ -137,11 +135,15 @@
             text-decoration: none;
         }
     </style>
-</head>
-<body>
-    {% include 'partials/navbar.html' %}
+{% endblock %}
 
-    <main class="container">
+{% block navbar %}
+    {% include 'partials/navbar.html' %}
+{% endblock %}
+
+{% block content %}
+
+<main class="container">
         <!-- Breadcrumb -->
         <div class="breadcrumb">
             <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
@@ -187,13 +189,22 @@
                                     👥 {{ ride.participants_count }}/{{ ride.max_riders }} riders
                                 </div>
                                 <div class="ride-meta-item">
-                                    📅 {{ ride.created_at }}
+                                    📅 {{ ride.scheduled_date }}
                                 </div>
                                 {% if ride.requires_payment %}
                                 <div class="ride-meta-item">
                                     💰 ₹{{ ride.amount }} ({{ ride.paid_count }}/{{ ride.participants_count }} paid)
                                 </div>
                                 {% endif %}
+                                <div class="ride-meta-item">
+                                    {% if ride.ride_type == "One Day" %}
+                                        <i class="fa fa-sun"></i> One Day
+                                    {% elif ride.ride_type == "Quick Ride" %}
+                                        <i class="fa fa-bolt"></i> Quick Ride
+                                    {% elif ride.ride_type == "Multi Day" %}
+                                        <i class="fa fa-mountain"></i> Multi Day
+                                    {%endif %}
+                                </div>
                             </div>
                         </div>
                         <span class="status-badge status-pending">{{ ride.status }}</span>
@@ -285,10 +296,23 @@
                     <label class="form-label" for="name">Ride Name *</label>
                     <input type="text" class="form-control" id="name" name="name" required>
                 </div>
+                <select class="form-control" name="ride_type" required>
+                    {% for ride_type in ride_types %}
+                    <option value="{{ ride_type }}">{{ ride_type|title|replace('_', ' ') }}</option>
+                    {% endfor %}
+                </select>
 
                 <div class="form-group">
                     <label class="form-label" for="max_riders">Max Riders *</label>
                     <input type="number" class="form-control" id="max_riders" name="max_riders" value="30" min="1" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="scheduled_date">Scheduled Date & Time *</label>
+                    <input type="date"
+                           class="form-control" id="scheduled_date" name="scheduled_date" required>
+                    <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem; display: block;">
+                        You can schedule rides up to 3 month in advance
+                    </small>
                 </div>
 
                 <div class="form-group">
@@ -311,9 +335,15 @@
         </div>
     </div>
 
-    {% include 'partials/footer.html' %}
 
-    <script>
+{% endblock %}
+
+{% block footer %}
+{% include 'partials/footer.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
         function openModal() {
             document.getElementById('createRideModal').classList.add('active');
         }
@@ -347,6 +377,35 @@
                 closeModal();
             }
         });
+
+        // Set min date to today and max to 3 month from now
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateInput = document.getElementById('scheduled_date');
+
+            if (dateInput) {
+                const now = new Date();
+
+                // 1. Calculate 3 months from now
+                const maxDate = new Date();
+                maxDate.setMonth(maxDate.getMonth() + 3);
+
+                // 2. Format as YYYY-MM-DD (Required by HTML5 for internal validation)
+                const formatDate = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+
+                // 3. Apply the limits
+                dateInput.min = formatDate(now);
+                dateInput.max = formatDate(maxDate);
+
+                // Optional: Set default value to today
+                dateInput.value = formatDate(now);
+            }
+        });
     </script>
-</body>
-</html>
+
+
+{% endblock %}

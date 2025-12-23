@@ -49,6 +49,7 @@ class RideResponse(BaseModel):
     max_riders: int
     requires_payment: bool
     amount: float
+    scheduled_date: Optional[datetime]  # NEW
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]

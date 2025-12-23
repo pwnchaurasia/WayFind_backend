@@ -16,9 +16,9 @@ from db.schemas.organization import (
 )
 from services.member_service import MemberService
 from services.organization_service import OrganizationService
-from utils import app_logger, resp_msgs
+from utils import app_logger, resp_msgs, RideStatus
 from utils.dependencies import get_current_user, get_current_user_web
-from utils.enums import OrganizationRole, UserRole
+from utils.enums import OrganizationRole, UserRole, RideType
 from utils.storage import storage
 from utils.templates import jinja_templates
 
@@ -638,5 +638,85 @@ async def org_ride_detail_page(
             },
             "participants": participants_data,
             "user_role": user_role.value if user_role else None
+        }
+    )
+
+
+@router.get("/{org_id}/rides", name="organization_rides_page")
+async def organization_rides_page(
+        request: Request,
+        org_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Organization rides page (Web)"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    # Get organization
+    organization = db.query(Organization).filter(Organization.id == org_id).first()
+    if not organization:
+        return RedirectResponse(url=request.url_for('dashboard_page'))
+
+    # Get user role
+    from services.member_service import MemberService
+    user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+
+    # Get all rides for this organization
+    rides = db.query(Ride).filter(Ride.organization_id == org_id).order_by(Ride.created_at.desc()).all()
+
+    # Categorize rides
+    upcoming_rides = []
+    active_rides = []
+    past_rides = []
+
+    for ride in rides:
+        participants_count = db.query(func.count(RideParticipant.id)).filter(
+            RideParticipant.ride_id == ride.id
+        ).scalar() or 0
+
+        paid_count = db.query(func.count(RideParticipant.id)).filter(
+            RideParticipant.ride_id == ride.id,
+            RideParticipant.has_paid == True
+        ).scalar() or 0
+
+        ride_data = {
+            "id": str(ride.id),
+            "name": ride.name,
+            "status": ride.status.value,
+            "max_riders": ride.max_riders,
+            "participants_count": participants_count,
+            "spots_left": ride.max_riders - participants_count,
+            "requires_payment": ride.requires_payment,
+            "amount": ride.amount,
+            "paid_count": paid_count,
+            "ride_type": ride.ride_type,
+            "scheduled_date": ride.scheduled_date.strftime("%Y-%m-%d") if ride.scheduled_date else None,
+            "created_at": ride.created_at.strftime("%Y-%m-%d"),
+            "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None
+        }
+
+        if ride.status == RideStatus.PLANNED:
+            upcoming_rides.append(ride_data)
+        elif ride.status == RideStatus.ACTIVE:
+            active_rides.append(ride_data)
+        else:
+            past_rides.append(ride_data)
+
+    return jinja_templates.TemplateResponse(
+        "organization/organization_rides.html",
+        {
+            "request": request,
+            "user": current_user,
+            "active_page": "organizations",
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name
+            },
+            "upcoming_rides": upcoming_rides,
+            "active_rides": active_rides,
+            "past_rides": past_rides,
+            "user_role": user_role.value if user_role else None,
+            "ride_types": [e.value for e in RideType],
         }
     )

@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import column_property
 from sqlalchemy import select, func
 from utils import Base
-from utils.enums import GroupUserType, UserRole, RideStatus, CheckpointType, ParticipantRole, OrganizationRole
+from utils.enums import GroupUserType, UserRole, RideStatus, CheckpointType, ParticipantRole, OrganizationRole, RideType
 
 
 class User(Base):
@@ -269,6 +269,10 @@ class Ride(Base):
     requires_payment = Column(Boolean, default=False, nullable=False)
     amount = Column(Float, default=0.0, nullable=False)
 
+    # NEW: Scheduled date
+    scheduled_date = Column(DateTime(timezone=True), nullable=True)  # When ride is planned
+    ride_type = Column(Enum(RideType), default=RideType.ONE_DAY, nullable=False)
+
     # Relationships
     organization = relationship("Organization", back_populates="rides")
     checkpoints = relationship("RideCheckpoint", back_populates="ride", cascade="all, delete-orphan")
@@ -291,6 +295,7 @@ class RideCheckpoint(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     radius_meters = Column(Integer, default=50, nullable=False)
+    address = Column(String, nullable=True)  # Human-readable address
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -18,10 +18,16 @@ class RideStatus(str, Enum):
     ACTIVE = "active"
     COMPLETED = "completed"
 
+class RideType(str, Enum):
+    ONE_DAY = "One Day"
+    MULTI_DAY = "Multi Day"
+    QUICK_RIDE = "Quick Ride"
+
 class CheckpointType(str, Enum):
     MEETUP = "meetup"
     DESTINATION = "destination"
     DISBURSEMENT = "disbursement"
+    REFRESHMENT = 'refreshment'
 
 class ParticipantRole(str, Enum):
     RIDER = "rider"

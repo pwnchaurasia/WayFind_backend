@@ -1,0 +1,323 @@
+<!-- Create Ride Modal -->
+<div class="modal" id="createRideModal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3>Create New Ride</h3>
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('create_ride_web', org_id=organization.id) }}" id="createRideForm">
+            <!-- Basic Info -->
+            <div class="form-group">
+                <label class="form-label" for="name">Ride Name *</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="max_riders">Max Riders *</label>
+                <input type="number" class="form-control" id="max_riders" name="max_riders" value="30" min="1" max="100" required>
+            </div>
+
+            <!-- Payment -->
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="requires_payment" name="requires_payment" value="true" onchange="togglePayment()">
+                    <span class="form-label" style="margin: 0;">Requires Payment</span>
+                </label>
+            </div>
+
+            <div class="form-group" id="amount-group" style="display: none;">
+                <label class="form-label" for="amount">Amount (₹) *</label>
+                <input type="number" class="form-control" id="amount" name="amount" value="0" min="0" step="0.01">
+            </div>
+
+            <!-- Checkpoints Section -->
+            <div style="margin: 2rem 0; padding-top: 1.5rem; border-top: 2px solid var(--border-color);">
+                <h4 style="color: var(--text-primary); margin-bottom: 1rem;">📍 Checkpoints</h4>
+
+                <!-- Meetup Point -->
+                <div class="form-group">
+                    <label class="form-label">Meetup Point *</label>
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="meetup_address"
+                            placeholder="Search location..."
+                            autocomplete="off"
+                            oninput="searchLocation('meetup')"
+                            required
+                        >
+                        <div id="meetup_results" class="location-results"></div>
+                    </div>
+                    <input type="hidden" id="meetup_lat" name="meetup_lat">
+                    <input type="hidden" id="meetup_lng" name="meetup_lng">
+                </div>
+
+                <!-- Destination -->
+                <div class="form-group">
+                    <label class="form-label">Destination *</label>
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="destination_address"
+                            placeholder="Search location..."
+                            autocomplete="off"
+                            oninput="searchLocation('destination')"
+                            required
+                        >
+                        <div id="destination_results" class="location-results"></div>
+                    </div>
+                    <input type="hidden" id="destination_lat" name="destination_lat">
+                    <input type="hidden" id="destination_lng" name="destination_lng">
+                </div>
+
+                <!-- Refreshment Points (Multiple) -->
+                <div class="form-group">
+                    <label class="form-label">Refreshment Stops (Optional)</label>
+                    <div id="refreshment-points">
+                        <!-- Dynamically added refreshment points -->
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="addRefreshmentPoint()" style="margin-top: 0.5rem;">
+                        + Add Refreshment Stop
+                    </button>
+                </div>
+
+                <!-- Disbursement Point -->
+                <div class="form-group">
+                    <label class="form-label">Disbursement Point *</label>
+                    <div style="position: relative;">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="disbursement_address"
+                            placeholder="Search location..."
+                            autocomplete="off"
+                            oninput="searchLocation('disbursement')"
+                            required
+                        >
+                        <div id="disbursement_results" class="location-results"></div>
+                    </div>
+                    <input type="hidden" id="disbursement_lat" name="disbursement_lat">
+                    <input type="hidden" id="disbursement_lng" name="disbursement_lng">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Create Ride</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.location-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.location-result-item {
+    padding: 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.location-result-item:hover {
+    background: var(--bg-secondary);
+}
+
+.location-result-item:last-child {
+    border-bottom: none;
+}
+
+.refreshment-point-item {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.refreshment-point-item input {
+    flex: 1;
+}
+
+.refreshment-point-item button {
+    padding: 0.75rem 1rem;
+}
+</style>
+
+<script src="{{ url_for('static', path='/js/map.js') }}"></script>
+
+<script>
+        function openModal() {
+            document.getElementById('createRideModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('createRideModal').classList.remove('active');
+        }
+
+        function togglePayment() {
+            const checkbox = document.getElementById('requires_payment');
+            const amountGroup = document.getElementById('amount-group');
+            amountGroup.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        document.getElementById('createRideModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+<script>
+let refreshmentCount = 0;
+let searchTimeout = null;
+
+function togglePayment() {
+    const checkbox = document.getElementById('requires_payment');
+    const amountGroup = document.getElementById('amount-group');
+    amountGroup.style.display = checkbox.checked ? 'block' : 'none';
+}
+
+async function searchLocation(type) {
+    clearTimeout(searchTimeout);
+
+    const input = document.getElementById(`${type}_address`);
+    const resultsDiv = document.getElementById(`${type}_results`);
+    const query = input.value.trim();
+
+    if (query.length < 3) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try {
+            const results = await mapService.searchAddress(query);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="location-result-item">No results found</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            resultsDiv.innerHTML = results.map(result => `
+                <div class="location-result-item" onclick="selectLocation('${type}', ${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
+                    ${result.display_name}
+                </div>
+            `).join('');
+
+            resultsDiv.style.display = 'block';
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    }, 500);
+}
+
+function selectLocation(type, lat, lng, address) {
+    document.getElementById(`${type}_address`).value = address;
+    document.getElementById(`${type}_lat`).value = lat;
+    document.getElementById(`${type}_lng`).value = lng;
+    document.getElementById(`${type}_results`).style.display = 'none';
+}
+
+function addRefreshmentPoint() {
+    refreshmentCount++;
+    const container = document.getElementById('refreshment-points');
+    const div = document.createElement('div');
+    div.className = 'refreshment-point-item';
+    div.innerHTML = `
+        <div style="flex: 1; position: relative;">
+            <input
+                type="text"
+                class="form-control"
+                id="refreshment_${refreshmentCount}_address"
+                placeholder="Search refreshment stop..."
+                autocomplete="off"
+                oninput="searchRefreshment(${refreshmentCount})"
+            >
+            <div id="refreshment_${refreshmentCount}_results" class="location-results"></div>
+            <input type="hidden" id="refreshment_${refreshmentCount}_lat" name="refreshment_${refreshmentCount}_lat">
+            <input type="hidden" id="refreshment_${refreshmentCount}_lng" name="refreshment_${refreshmentCount}_lng">
+        </div>
+        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">Remove</button>
+    `;
+    container.appendChild(div);
+}
+
+async function searchRefreshment(index) {
+    clearTimeout(searchTimeout);
+
+    const input = document.getElementById(`refreshment_${index}_address`);
+    const resultsDiv = document.getElementById(`refreshment_${index}_results`);
+    const query = input.value.trim();
+
+    if (query.length < 3) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try {
+            const results = await mapService.searchAddress(query);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="location-result-item">No results found</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            resultsDiv.innerHTML = results.map(result => `
+                <div class="location-result-item" onclick="selectRefreshment(${index}, ${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
+                    ${result.display_name}
+                </div>
+            `).join('');
+
+            resultsDiv.style.display = 'block';
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    }, 500);
+}
+
+function selectRefreshment(index, lat, lng, address) {
+    document.getElementById(`refreshment_${index}_address`).value = address;
+    document.getElementById(`refreshment_${index}_lat`).value = lat;
+    document.getElementById(`refreshment_${index}_lng`).value = lng;
+    document.getElementById(`refreshment_${index}_results`).style.display = 'none';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.matches('input[type="text"]')) {
+        document.querySelectorAll('.location-results').forEach(div => {
+            div.style.display = 'none';
+        });
+    }
+});
+</script>

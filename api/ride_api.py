@@ -327,90 +327,13 @@ async def mark_payment_api(
 
 
 # Web Routes (for Dashboard)
-
-@router.get("/{org_id}/rides", name="organization_rides_page")
-async def organization_rides_page(
-        request: Request,
-        org_id: UUID,
-        current_user=Depends(get_current_user_web),
-        db: Session = Depends(get_db)
-):
-    """Organization rides page (Web)"""
-    if not current_user:
-        return RedirectResponse(url=request.url_for('login_page'))
-
-    # Get organization
-    organization = db.query(Organization).filter(Organization.id == org_id).first()
-    if not organization:
-        return RedirectResponse(url=request.url_for('dashboard_page'))
-
-    # Get user role
-    from services.member_service import MemberService
-    user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
-
-    # Get all rides for this organization
-    rides = db.query(Ride).filter(Ride.organization_id == org_id).order_by(Ride.created_at.desc()).all()
-
-    # Categorize rides
-    upcoming_rides = []
-    active_rides = []
-    past_rides = []
-
-    for ride in rides:
-        participants_count = db.query(func.count(RideParticipant.id)).filter(
-            RideParticipant.ride_id == ride.id
-        ).scalar() or 0
-
-        paid_count = db.query(func.count(RideParticipant.id)).filter(
-            RideParticipant.ride_id == ride.id,
-            RideParticipant.has_paid == True
-        ).scalar() or 0
-
-        ride_data = {
-            "id": str(ride.id),
-            "name": ride.name,
-            "status": ride.status.value,
-            "max_riders": ride.max_riders,
-            "participants_count": participants_count,
-            "spots_left": ride.max_riders - participants_count,
-            "requires_payment": ride.requires_payment,
-            "amount": ride.amount,
-            "paid_count": paid_count,
-            "created_at": ride.created_at.strftime("%Y-%m-%d"),
-            "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None
-        }
-
-        if ride.status == RideStatus.PLANNED:
-            upcoming_rides.append(ride_data)
-        elif ride.status == RideStatus.ACTIVE:
-            active_rides.append(ride_data)
-        else:
-            past_rides.append(ride_data)
-
-    return jinja_templates.TemplateResponse(
-        "organization/organization_rides.html",
-        {
-            "request": request,
-            "user": current_user,
-            "active_page": "organizations",
-            "organization": {
-                "id": str(organization.id),
-                "name": organization.name
-            },
-            "upcoming_rides": upcoming_rides,
-            "active_rides": active_rides,
-            "past_rides": past_rides,
-            "user_role": user_role.value if user_role else None
-        }
-    )
-
-
 @router.post("/{org_id}/rides/create", name="create_ride_web")
 async def create_ride_web(
         request: Request,
         org_id: UUID,
         name: str = Form(...),
         max_riders: int = Form(30),
+        scheduled_date: str = Form(...),
         requires_payment: bool = Form(False),
         amount: float = Form(0.0),
         # Checkpoints (we'll handle these as JSON or separate forms)
@@ -432,11 +355,16 @@ async def create_ride_web(
                 status_code=303
             )
 
+        scheduled_dt = datetime.fromisoformat(scheduled_date)
+        now = datetime.now()
+
+
         # Create ride
         ride = Ride(
             organization_id=org_id,
             name=name,
             max_riders=max_riders,
+            scheduled_date=scheduled_dt,
             requires_payment=requires_payment,
             amount=amount,
             status=RideStatus.PLANNED
