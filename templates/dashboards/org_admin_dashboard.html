@@ -1,0 +1,90 @@
+{% extends "partials/base.html" %}
+{% block title %}Dashboard - Squadra{% endblock %}
+
+{% block navbar %}{% include 'partials/navbar.html' %}{% endblock %}
+
+{% block content %}
+<main class="container">
+    <h1 style="color: var(--text-primary); margin-bottom: 2rem;">Your Organizations</h1>
+
+    <!-- Overall Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_rides }}</div>
+            <div class="stat-label">Total Rides</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_members }}</div>
+            <div class="stat-label">Org Members</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_participants }}</div>
+            <div class="stat-label">Ride Participants</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ active_rides }}</div>
+            <div class="stat-label">Active Rides</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ upcoming_rides }}</div>
+            <div class="stat-label">Upcoming Rides</div>
+        </div>
+    </div>
+
+    <!-- Organizations List -->
+    {% for org in organizations %}
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                {% if org.logo %}
+                <img src="{{ org.logo }}" alt="{{ org.name }}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;">
+                {% endif %}
+                <div>
+                    <h2 class="card-title" style="margin-bottom: 0.25rem;">{{ org.name }}</h2>
+                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.875rem;">
+                        Your Role: <span style="color: var(--accent-green);">{{ org.role|upper|replace('_', ' ') }}</span>
+                    </p>
+                </div>
+            </div>
+            <a href="{{ url_for('organization_detail_page', org_id=org.id) }}" class="btn btn-primary btn-sm">
+                View Details →
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.rides_count }}</div>
+                    <div class="stat-label">Total Rides</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.members_count }}</div>
+                    <div class="stat-label">Org Members</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.participants_count }}</div>
+                    <div class="stat-label">Riders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" style="color: var(--accent-green);">{{ org.active_rides }}</div>
+                    <div class="stat-label">Active Now</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.upcoming_rides }}</div>
+                    <div class="stat-label">Upcoming</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.new_members_this_month }}</div>
+                    <div class="stat-label">New Members (30d)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ org.repeat_riders }}</div>
+                    <div class="stat-label">Repeat Riders</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</main>
+{% endblock %}
+
+{% block footer %}{% include 'partials/footer.html' %}{% endblock %}

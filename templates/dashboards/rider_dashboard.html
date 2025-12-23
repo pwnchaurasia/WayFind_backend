@@ -1,0 +1,151 @@
+{% extends "partials/base.html" %}
+
+<!--{% if False %}-->
+{% block title %}My Dashboard - Squadra{% endblock %}
+
+{% block navbar %}{% include 'partials/navbar.html' %}{% endblock %}
+
+{% block content %}
+<main class="container">
+    <h1 style="color: var(--text-primary); margin-bottom: 0.5rem;">Welcome, {{ user.name }}! 🏍️</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 2rem;">Here's your riding summary</p>
+
+    <!-- Personal Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_rides }}</div>
+            <div class="stat-label">Total Rides Joined</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ completed_rides }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ groups_joined }}</div>
+            <div class="stat-label">Groups Joined</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color: {% if payment_pending > 0 %}var(--warning-color){% else %}var(--accent-green){% endif %};">
+                {{ payment_pending }}
+            </div>
+            <div class="stat-label">Payment Pending</div>
+        </div>
+    </div>
+
+    <!-- Upcoming Rides -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Upcoming Rides ({{ upcoming_rides|length }})</h2>
+        </div>
+        <div class="card-body">
+            {% if upcoming_rides %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ride Name</th>
+                        <th>Organization</th>
+                        <th>Scheduled</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ride in upcoming_rides %}
+                    <tr>
+                        <td>{{ ride.name }}</td>
+                        <td>{{ ride.organization_name }}</td>
+                        <td>{{ ride.scheduled_date }}</td>
+                        <td>
+                            <span class="status-badge status-pending">{{ ride.status|upper }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('org_ride_detail_page', org_id=ride.organization_id, ride_id=ride.id) }}" class="btn btn-secondary btn-sm">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                No upcoming rides. Join a ride to get started!
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Groups/Organizations -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Your Groups ({{ groups_joined }})</h2>
+        </div>
+        <div class="card-body">
+            {% if organizations %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+                {% for org in organizations %}
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                    {% if org.logo %}
+                    <img src="{{ org.logo }}" alt="{{ org.name }}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; margin-bottom: 1rem;">
+                    {% endif %}
+                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">{{ org.name }}</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+                        {{ org.rides_joined }} rides joined
+                    </p>
+                    <a href="{{ url_for('organization_detail_page', org_id=org.id) }}" class="btn btn-secondary btn-sm" style="width: 100%;">
+                        View Organization
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                You haven't joined any groups yet.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Rides -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Recent Rides</h2>
+        </div>
+        <div class="card-body">
+            {% if recent_rides %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ride Name</th>
+                        <th>Organization</th>
+                        <th>Completed</th>
+                        <th>Attendance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ride in recent_rides %}
+                    <tr>
+                        <td>{{ ride.name }}</td>
+                        <td>{{ ride.organization_name }}</td>
+                        <td>{{ ride.completed_date }}</td>
+                        <td>
+                            <span class="status-badge {% if ride.attendance == 'Present' %}status-active{% else %}status-inactive{% endif %}">
+                                {{ ride.attendance }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                No completed rides yet.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block footer %}{% include 'partials/footer.html' %}{% endblock %}
+<!--{% endif %}-->
