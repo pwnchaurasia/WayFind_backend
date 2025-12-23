@@ -88,6 +88,126 @@
                 </span>
             </div>
         </div>
+        <!-- Checkpoints Section -->
+        {% if ride.status == 'DRAFT' or not ride.has_checkpoints %}
+        <!-- Warning Banner for Missing Checkpoints -->
+        <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid var(--warning-color); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h3 style="color: var(--warning-color); margin: 0 0 0.5rem 0; font-size: 1.125rem;">
+                        ⚠️ Checkpoints Required
+                    </h3>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.875rem;">
+                        This ride needs checkpoints (Meetup, Destination, Disbursement) before it can be published.
+                    </p>
+                </div>
+                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                <a href="{{ url_for('add_checkpoints_page', org_id=organization.id, ride_id=ride.id) }}" class="btn btn-primary">
+                    {% if has_checkpoints %}Edit Checkpoints{% else %}Add Checkpoints{% endif %} →
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Show Checkpoints if They Exist -->
+        {% if ride.has_checkpoints %}
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📍 Route</h2>
+                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                <a href="{{ url_for('add_checkpoints_page', org_id=organization.id, ride_id=ride.id) }}" class="btn btn-secondary btn-sm">
+                    Edit Checkpoints
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Meetup Point -->
+                    {% if ride.checkpoints.meetup %}
+                    <div style="display: flex; align-items: start; gap: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="font-size: 2rem;">🏁</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                MEETUP POINT
+                            </div>
+                            <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                                {{ ride.checkpoints.meetup.address or 'Lat: ' + ride.checkpoints.meetup.latitude|string + ', Lng: ' + ride.checkpoints.meetup.longitude|string }}
+                            </div>
+                        </div>
+                        <a href="{{ ride.checkpoints.meetup.google_maps_url }}"
+                           target="_blank"
+                           class="btn btn-secondary btn-sm">
+                            Open in Maps
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Refreshment Stops -->
+                    {% if ride.checkpoints.refreshments %}
+                        {% for ref in ride.checkpoints.refreshments %}
+                        <div style="display: flex; align-items: start; gap: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                            <div style="font-size: 2rem;">☕</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                    REFRESHMENT STOP
+                                </div>
+                                <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                                    {{ ref.address or 'Lat: ' + ref.latitude|string + ', Lng: ' + ref.longitude|string }}
+                                </div>
+                            </div>
+                            <a href="{{ ref.google_maps_url }}"
+                               target="_blank"
+                               class="btn btn-secondary btn-sm">
+                                Open in Maps
+                            </a>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <!-- Destination -->
+                    {% if ride.checkpoints.destination %}
+                    <div style="display: flex; align-items: start; gap: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="font-size: 2rem;">🎯</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                DESTINATION
+                            </div>
+                            <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                                {{ ride.checkpoints.destination.address or 'Lat: ' + ride.checkpoints.destination.latitude|string + ', Lng: ' + ride.checkpoints.destination.longitude|string }}
+                            </div>
+                        </div>
+                        <a href="{{ ride.checkpoints.destination.google_maps_url }}"
+                           target="_blank"
+                           class="btn btn-secondary btn-sm">
+                            Open in Maps
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Disbursement Point -->
+                    {% if ride.checkpoints.disbursement %}
+                    <div style="display: flex; align-items: start; gap: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="font-size: 2rem;">🏠</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                DISBURSEMENT POINT
+                            </div>
+                            <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                                {{ ride.checkpoints.disbursement.address or 'Lat: ' + ride.checkpoints.disbursement.latitude|string + ', Lng: ' + checkpoints.disbursement.longitude|string }}
+                            </div>
+                        </div>
+                        <a href="{{ ride.checkpoints.disbursement.google_maps_url }}"
+                           target="_blank"
+                           class="btn btn-secondary btn-sm">
+                            Open in Maps
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Stats Grid -->
         <div class="stats-grid">

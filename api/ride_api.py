@@ -378,7 +378,7 @@ async def create_ride_web(
         logger.info(f"Ride created via web: {ride.name}")
 
         return RedirectResponse(
-            url=request.url_for('organization_rides_page', org_id=str(org_id)),
+            url=request.url_for('add_checkpoints_page', org_id=str(org_id)),
             status_code=303
         )
 
@@ -584,33 +584,6 @@ async def confirm_join_ride(
                 "message": "Please try again."
             }
         )
-
-
-@router.get("/{org_id}/rides/{ride_id}/checkpoints/add", name="add_checkpoints_page")
-async def add_checkpoints_page(
-        request: Request,
-        org_id: UUID,
-        ride_id: UUID,
-        current_user=Depends(get_current_user_web),
-        db: Session = Depends(get_db)
-):
-    """Add checkpoints page"""
-    ride = db.query(Ride).filter(Ride.id == ride_id).first()
-    organization = db.query(Organization).filter(Organization.id == org_id).first()
-
-    locationiq_key = os.getenv("LOCATIONIQ_API_KEY")
-
-    return jinja_templates.TemplateResponse(
-        "add_checkpoints.html",
-        {
-            "request": request,
-            "user": current_user,
-            "organization": {"id": str(org_id), "name": organization.name},
-            "ride": {"id": str(ride_id), "name": ride.name},
-            "locationiq_key": locationiq_key
-        }
-    )
-
 
 @router.post("/{ride_id}/checkpoints/add")
 async def add_checkpoint_api(

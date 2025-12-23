@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from uuid import UUID
 
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from db.db_conn import get_db
-from db.models import OrganizationMember, User, RideParticipant, Organization, Ride
+from db.models import OrganizationMember, User, RideParticipant, Organization, Ride, RideCheckpoint
 from db.schemas import OrganizationListResponse, UpdateOrganization
 from db.schemas.organization import (
     CreateOrganization, AddOrganizationMember, OrganizationResponse,
@@ -16,7 +17,7 @@ from db.schemas.organization import (
 )
 from services.member_service import MemberService
 from services.organization_service import OrganizationService
-from utils import app_logger, resp_msgs, RideStatus
+from utils import app_logger, resp_msgs, RideStatus, CheckpointType
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideType
 from utils.storage import storage
@@ -591,6 +592,34 @@ async def org_ride_detail_page(
         RideParticipant.ride_id == ride_id
     ).all()
 
+    checkpoints = db.query(RideCheckpoint).filter(RideCheckpoint.ride_id == ride_id).all()
+
+    checkpoint_data = {
+        'meetup': None,
+        'destination': None,
+        'disbursement': None,
+        'refreshments': []
+    }
+
+    for cp in checkpoints:
+        cp_dict = {
+            'id': str(cp.id),
+            'type': cp.type.value,
+            'latitude': cp.latitude,
+            'longitude': cp.longitude,
+            'address': cp.address,
+            'google_maps_url': f"https://www.google.com/maps?q={cp.latitude},{cp.longitude}"
+        }
+
+        if cp.type == CheckpointType.MEETUP:
+            checkpoint_data['meetup'] = cp_dict
+        elif cp.type == CheckpointType.DESTINATION:
+            checkpoint_data['destination'] = cp_dict
+        elif cp.type == CheckpointType.DISBURSEMENT:
+            checkpoint_data['disbursement'] = cp_dict
+        elif cp.type == CheckpointType.REFRESHMENT:
+            checkpoint_data['refreshments'].append(cp_dict)
+
     participants_data = []
     for p in participants:
         user = db.query(User).filter(User.id == p.user_id).first()
@@ -634,7 +663,9 @@ async def org_ride_detail_page(
                 "amount": ride.amount,
                 "created_at": ride.created_at.strftime("%Y-%m-%d"),
                 "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None,
-                "share_link": share_link
+                "share_link": share_link,
+                "checkpoints": checkpoint_data,
+                "has_checkpoints": len(checkpoints) > 0,
             },
             "participants": participants_data,
             "user_role": user_role.value if user_role else None
@@ -718,5 +749,33 @@ async def organization_rides_page(
             "past_rides": past_rides,
             "user_role": user_role.value if user_role else None,
             "ride_types": [e.value for e in RideType],
+        }
+    )
+
+
+
+@router.get("/{org_id}/rides/{ride_id}/checkpoints/add", name="add_checkpoints_page")
+async def add_checkpoints_page(
+        request: Request,
+        org_id: UUID,
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Add checkpoints page"""
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    organization = db.query(Organization).filter(Organization.id == org_id).first()
+
+    google_maps_key = os.getenv("GOOGLE_MAP_API_KEY")
+
+
+    return jinja_templates.TemplateResponse(
+        "ride/add_checkpoints.html",
+        {
+            "request": request,
+            "user": current_user,
+            "organization": {"id": str(org_id), "name": organization.name},
+            "ride": {"id": str(ride_id), "name": ride.name},
+            "google_maps_key": google_maps_key
         }
     )
