@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ ride.name }} - Squadra</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
-    <style>
+{% extends "partials/base.html" %}
+
+{% block title %} {{ ride.name  }} - Squadra {% endblock %}
+
+{% block extra_css %}
+<style>
         .breadcrumb {
             display: flex;
             gap: 0.5rem;
@@ -57,11 +55,11 @@
             background: var(--success-color);
         }
     </style>
-</head>
-<body>
-    {% include 'partials/navbar.html' %}
+{% endblock %}
 
-    <main class="container">
+
+{% block content %}
+<main class="container">
         <!-- Breadcrumb -->
         <div class="breadcrumb">
             <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
@@ -234,10 +232,11 @@
             {% endif %}
         {% endif %}
     </main>
+{% endblock %}
 
-    {% include 'partials/footer.html' %}
 
-    <script>
+{% block extra_js %}
+<script>
         function copyLink() {
             const input = document.getElementById('shareLink');
             input.select();
@@ -254,5 +253,4 @@
             }, 2000);
         }
     </script>
-</body>
-</html>
+{% endblock %}
