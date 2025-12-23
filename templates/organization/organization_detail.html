@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ organization.name }} - WayFind</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
-    <style>
+{% extends "partials/base.html" %}
+
+{% block title %}{{ organization.name }} - Squadra{% endblock %}
+
+{% block extra_css %}
+<style>
         .modal {
             display: none;
             position: fixed;
@@ -92,11 +90,13 @@
             object-fit: cover;
         }
     </style>
-</head>
-<body>
-    {% include 'partials/navbar.html' %}
+{% endblock %}
 
-    <main class="container">
+{% block navbar %}
+    {% include 'partials/navbar.html' %}
+{% endblock %}
+{% block content %}
+ <main class="container">
         <!-- Breadcrumb -->
         <div class="breadcrumb">
             <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
@@ -256,10 +256,14 @@
             </form>
         </div>
     </div>
+{% endblock %}
 
-    {% include 'partials/footer.html' %}
+{% block footer %}
+{% include 'partials/footer.html' %}
+{% endblock %}
 
-    <script>
+{% block extra_js %}
+<script>
         function openModal() {
             document.getElementById('inviteModal').classList.add('active');
         }
@@ -277,5 +281,4 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}
