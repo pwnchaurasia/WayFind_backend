@@ -4,159 +4,205 @@
 
 {% block extra_css %}
 <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.6);
-            align-items: center;
-            justify-content: center;
-        }
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+}
 
-        .modal.active {
-            display: flex;
-        }
+.modal.active {
+    display: flex;
+}
 
-        .modal-content {
-            background-color: var(--bg-card);
-            border-radius: 12px;
-            padding: 2rem;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-        }
+.modal-content {
+    background-color: var(--bg-card);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
 
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
 
-        .modal-header h3 {
-            color: var(--text-primary);
-            margin: 0;
-        }
+.modal-header h3 {
+    color: var(--text-primary);
+    margin: 0;
+}
 
-        .close-modal {
-            background: none;
-            border: none;
-            font-size: 2rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
-            line-height: 1;
-        }
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    line-height: 1;
+}
 
-        .close-modal:hover {
-            color: var(--text-primary);
-        }
+.close-modal:hover {
+    color: var(--text-primary);
+}
 
-        .breadcrumb {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
+.breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
 
-        .breadcrumb a {
-            color: var(--accent-green);
-            text-decoration: none;
-        }
+.breadcrumb a {
+    color: var(--accent-green);
+    text-decoration: none;
+}
 
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
 
-        .org-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
+.org-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
 
-        .org-logo {
-            width: 60px;
-            height: 60px;
-            border-radius: 8px;
-            object-fit: cover;
-        }
-    </style>
+.org-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+/* NEW: Tabs */
+.tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.tab {
+    padding: 0.75rem 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.tab.active {
+    color: var(--accent-green);
+    border-bottom-color: var(--accent-green);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+</style>
 {% endblock %}
 
 {% block navbar %}
-    {% include 'partials/navbar.html' %}
+{% include 'partials/navbar.html' %}
 {% endblock %}
+
 {% block content %}
- <main class="container">
-        <!-- Breadcrumb -->
-        <div class="breadcrumb">
-            <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
-            <span>/</span>
-            <span>{{ organization.name }}</span>
-        </div>
+<main class="container">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
+        <span>/</span>
+        <span>{{ organization.name }}</span>
+    </div>
 
-        <!-- Organization Info -->
-        <div class="card">
-            <div class="card-header">
-                <div class="org-header">
-                    {% if organization.logo %}
-                    <img src="{{ organization.logo }}" alt="{{ organization.name }}" class="org-logo">
-                    {% endif %}
-                    <div>
-                        <h2 class="card-title" style="margin-bottom: 0.25rem;">{{ organization.name }}</h2>
-                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.875rem;">
-                            {{ organization.description }}
-                        </p>
-                        <p style="color: var(--text-disabled); margin: 0.25rem 0 0 0; font-size: 0.75rem;">
-                            Created: {{ organization.created_at }}
-                        </p>
-                    </div>
-                </div>
+    <!-- Organization Info -->
+    <div class="card">
+        <div class="card-header">
+            <div class="org-header">
+                {% if organization.logo %}
+                <img src="{{ organization.logo }}" alt="{{ organization.name }}" class="org-logo">
+                {% endif %}
                 <div>
-                    <span class="status-badge {% if organization.is_active %}status-active{% else %}status-inactive{% endif %}">
-                        {% if organization.is_active %}Active{% else %}Inactive{% endif %}
-                    </span>
-                </div>
-                <div style="display: flex; gap: 0.5rem;">
-                    <a href="{{ url_for('organization_rides_page', org_id=organization.id) }}" class="btn btn-primary btn-sm">
-                        🏍️ Rides
-                    </a>
-                    {% if user_role in ['founder', 'co_founder'] or user.role.value == 'super_admin' %}
-                    <button class="btn btn-primary btn-sm" onclick="openModal()">Add Member</button>
-                    {% endif %}
+                    <h2 class="card-title" style="margin-bottom: 0.25rem;">{{ organization.name }}</h2>
+                    <p style="color: var(--text-secondary); margin: 0; font-size: 0.875rem;">
+                        {{ organization.description }}
+                    </p>
+                    <p style="color: var(--text-disabled); margin: 0.25rem 0 0 0; font-size: 0.75rem;">
+                        Created: {{ organization.created_at }}
+                    </p>
                 </div>
             </div>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{ members_count }}</div>
-                <div class="stat-label">Total Members</div>
+            <div>
+                <span class="status-badge {% if organization.is_active %}status-active{% else %}status-inactive{% endif %}">
+                    {% if organization.is_active %}Active{% else %}Inactive{% endif %}
+                </span>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ active_rides }}</div>
-                <div class="stat-label">Active Rides</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ total_rides }}</div>
-                <div class="stat-label">Total Rides</div>
+            <div style="display: flex; gap: 0.5rem;">
+                <a href="{{ url_for('organization_rides_page', org_id=organization.id) }}" class="btn btn-primary btn-sm">
+                    🏍️ Rides
+                </a>
             </div>
         </div>
+    </div>
 
-        <!-- Members Section -->
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ members_count }}</div>
+            <div class="stat-label">Org Members</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ ride_participants_count }}</div>
+            <div class="stat-label">Ride Participants</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ active_rides }}</div>
+            <div class="stat-label">Active Rides</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_rides }}</div>
+            <div class="stat-label">Total Rides</div>
+        </div>
+    </div>
+
+    <!-- Tabs: Organization Members vs Ride Participants -->
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('org-members')">
+            Organization Members ({{ members_count }})
+        </button>
+        <button class="tab" onclick="switchTab('ride-participants')">
+            Ride Participants ({{ ride_participants_count }})
+        </button>
+    </div>
+
+    <!-- Organization Members Tab -->
+    <div id="org-members" class="tab-content active">
         <div class="card">
             <div class="card-header">
-                <h2 class="card-title">Members ({{ members_count }})</h2>
+                <h2 class="card-title">Organization Members</h2>
                 {% if user_role in ['founder', 'co_founder'] or user.role.value == 'super_admin' %}
                 <button class="btn btn-primary btn-sm" onclick="openModal()">Add Member</button>
                 {% endif %}
@@ -217,45 +263,88 @@
                 {% endif %}
             </div>
         </div>
-    </main>
+    </div>
 
-    <!-- Add Member Modal -->
-    <div class="modal" id="inviteModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Add Member</h3>
-                <button class="close-modal" onclick="closeModal()">&times;</button>
+    <!-- Ride Participants Tab (NEW) -->
+    <div id="ride-participants" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Ride Participants</h2>
+                <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.875rem;">
+                    People who joined rides but are not official members
+                </p>
             </div>
-            <form method="POST" action="{{ url_for('invite_member_web', org_id=organization.id) }}">
-                <div class="form-group">
-                    <label class="form-label" for="name">Name *</label>
-                    <input type="text" class="form-control" id="name" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="email">Email *</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="phone_number">Phone Number *</label>
-                    <input type="tel" class="form-control" id="phone_number" name="phone_number" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="role">Role *</label>
-                    <select class="form-control" id="role" name="role" required>
-                        {% if user_role == 'founder' or user.role.value == 'super_admin' %}
-                        <option value="founder">Founder</option>
-                        <option value="co_founder">Co-Founder</option>
-                        {% endif %}
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Add Member</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
-                </div>
-            </form>
+            <div class="card-body">
+                {% if ride_participants %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>First Joined</th>
+                            <th>Total Rides</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for participant in ride_participants %}
+                        <tr>
+                            <td>{{ participant.name }}</td>
+                            <td>{{ participant.phone }}</td>
+                            <td>{{ participant.email or 'N/A' }}</td>
+                            <td>{{ participant.created_at }}</td>
+                            <td>{{ participant.rides_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                    No ride participants yet. Share ride links to get riders!
+                </p>
+                {% endif %}
+            </div>
         </div>
     </div>
+</main>
+
+<!-- Add Member Modal -->
+<div class="modal" id="inviteModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Member</h3>
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('invite_member_web', org_id=organization.id) }}">
+            <div class="form-group">
+                <label class="form-label" for="name">Name *</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="email">Email *</label>
+                <input type="email" class="form-control" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="phone_number">Phone Number *</label>
+                <input type="tel" class="form-control" id="phone_number" name="phone_number" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="role">Role *</label>
+                <select class="form-control" id="role" name="role" required>
+                    {% if user_role == 'founder' or user.role.value == 'super_admin' %}
+                    <option value="founder">Founder</option>
+                    <option value="co_founder">Co-Founder</option>
+                    {% endif %}
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Add Member</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()" style="flex: 1;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block footer %}
@@ -264,21 +353,35 @@
 
 {% block extra_js %}
 <script>
-        function openModal() {
-            document.getElementById('inviteModal').classList.add('active');
-        }
+function openModal() {
+    document.getElementById('inviteModal').classList.add('active');
+}
 
-        function closeModal() {
-            document.getElementById('inviteModal').classList.remove('active');
-            document.getElementById('name').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('phone_number').value = '';
-        }
+function closeModal() {
+    document.getElementById('inviteModal').classList.remove('active');
+    document.getElementById('name').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('phone_number').value = '';
+}
 
-        document.getElementById('inviteModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
-    </script>
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById(tabName).classList.add('active');
+    event.target.classList.add('active');
+}
+
+document.getElementById('inviteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+</script>
 {% endblock %}

@@ -20,6 +20,7 @@ from services.organization_service import OrganizationService
 from utils import app_logger, resp_msgs, RideStatus, CheckpointType
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideType
+from utils.permissions import PermissionChecker, PermissionDependency
 from utils.storage import storage
 from utils.templates import jinja_templates
 
@@ -302,7 +303,7 @@ async def add_member_to_organization(
         )
 
 
-@router.get("/{org_id}/members", response_model=dict)
+@router.get("/{org_id}/members", response_model=dict, name='get_organization_members')
 async def get_organization_members(
         request: Request,
         org_id: UUID,
@@ -328,6 +329,49 @@ async def get_organization_members(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=resp_msgs.STATUS_500_MSG
         )
+
+
+@router.get("/{org_id}/all-people", name='organization_all_people_page')
+async def organization_all_people_page(
+        request: Request,
+        org_id: UUID,
+        current_user: User = Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """
+    Show ALL people page (HTML)
+    Access: Only org admins
+    """
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    # PermissionDependency.require_org_admin(org_id)
+
+    # Get organization
+    organization = db.query(Organization).filter(Organization.id == org_id).first()
+
+    # Get all people
+    result = OrganizationService.get_all_organization_people(db, org_id)
+
+
+    user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+
+    return jinja_templates.TemplateResponse(
+        "organization/organization_all_people.html",  # New template
+        {
+            "request": request,
+            "user": current_user,
+            "active_page": "organizations",
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name
+            },
+            "org_members": result["org_members"],
+            "ride_participants": result["ride_participants"],
+            "total_count": result["total_count"],
+            "user_role": user_role.value if user_role else None
+        }
+    )
 
 
 @router.put("/{org_id}/members/{user_id}/role", response_model=dict)

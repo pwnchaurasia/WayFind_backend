@@ -1,8 +1,8 @@
 from typing import List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from db.models import Organization, OrganizationMember, User
+from sqlalchemy import func, literal
+from db.models import Organization, OrganizationMember, User, RideParticipant, Ride
 from db.schemas.organization import CreateOrganization, UpdateOrganization, AddOrganizationMember
 from utils.enums import OrganizationRole
 from utils.app_logger import createLogger
@@ -331,3 +331,108 @@ class OrganizationService:
         except Exception as e:
             logger.exception(f"Error getting members count: {e}")
             return 0
+
+    @staticmethod
+    def get_all_organization_people(
+            db: Session,
+            org_id: UUID,
+            is_active: Optional[bool] = None
+    ) -> dict:
+        """
+        Get ALL people associated with organization:
+        - Official org members (Founder, Co-Founder, Admin)
+        - Ride participants (people who joined any ride)
+        """
+        try:
+            # 1. Get official org members
+            org_members_query = db.query(
+                User.id,
+                User.name,
+                User.phone_number,
+                User.email,
+                OrganizationMember.role,
+                OrganizationMember.is_active,
+                OrganizationMember.created_at,
+                literal('org_member').label('member_type')
+            ).join(
+                OrganizationMember,
+                User.id == OrganizationMember.user_id
+            ).filter(
+                OrganizationMember.organization_id == org_id,
+                OrganizationMember.is_deleted == False
+            )
+
+            if is_active is not None:
+                org_members_query = org_members_query.filter(
+                    OrganizationMember.is_active == is_active
+                )
+
+            # 2. Get ride participants (who are NOT org members)
+            ride_participants_query = db.query(
+                User.id,
+                User.name,
+                User.phone_number,
+                User.email,
+                literal(None).label('role'),  # They don't have org role
+                literal(True).label('is_active'),
+                func.min(RideParticipant.registered_at).label('created_at'),
+                literal('ride_participant').label('member_type')
+            ).join(
+                RideParticipant,
+                User.id == RideParticipant.user_id
+            ).join(
+                Ride,
+                RideParticipant.ride_id == Ride.id
+            ).filter(
+                Ride.organization_id == org_id,
+                # Exclude users who are already org members
+                ~User.id.in_(
+                    db.query(OrganizationMember.user_id).filter(
+                        OrganizationMember.organization_id == org_id,
+                        OrganizationMember.is_deleted == False
+                    )
+                )
+            ).group_by(
+                User.id,
+                User.name,
+                User.phone_number,
+                User.email
+            )
+
+            # 3. Combine both queries
+            all_people = org_members_query.union(ride_participants_query).all()
+
+            # 4. Organize results
+            org_members = []
+            ride_participants = []
+
+            for person in all_people:
+                person_dict = {
+                    "id": str(person.id),
+                    "name": person.name,
+                    "phone": person.phone_number,
+                    "email": person.email,
+                    "role": person.role.value if person.role else None,
+                    "is_active": person.is_active,
+                    "created_at": person.created_at.strftime("%Y-%m-%d"),
+                    "member_type": person.member_type
+                }
+
+                if person.member_type == 'org_member':
+                    org_members.append(person_dict)
+                else:
+                    ride_participants.append(person_dict)
+
+            return {
+                "org_members": org_members,
+                "ride_participants": ride_participants,
+                "total_count": len(all_people)
+            }
+
+        except Exception as e:
+            logger.exception(f"Error getting organization people: {e}")
+            return {
+                "org_members": [],
+                "ride_participants": [],
+                "total_count": 0
+            }
