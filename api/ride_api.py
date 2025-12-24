@@ -8,7 +8,8 @@ from uuid import UUID
 from datetime import datetime
 
 from db.db_conn import get_db
-from db.models import Ride, RideParticipant, RideCheckpoint, User, OrganizationMember, Organization, UserRideInformation
+from db.models import Ride, RideParticipant, RideCheckpoint, User, OrganizationMember, Organization, \
+    UserRideInformation, AttendanceRecord
 from db.schemas.ride import (
     CreateRide, UpdateRide, RideResponse,
     RideParticipantResponse, MarkPaymentRequest
@@ -785,5 +786,92 @@ async def end_ride_web(
         logger.exception(f"Error ending ride: {e}")
         return RedirectResponse(
             url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+            status_code=303
+        )
+
+
+@router.post("/{ride_id}/mark-attendance", name="mark_attendance_web")
+async def mark_attendance_web(
+        request: Request,
+        ride_id: UUID,
+        participant_id: UUID = Form(...),
+        status: str = Form(...),  # 'present' or 'absent'
+        reason: Optional[str] = Form(None),
+        checkpoint_type: str = Form("meetup"),  # meetup, destination, disbursement
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Mark attendance for participant (Web)"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Check permission
+        PermissionDependency.require_org_admin(ride.organization_id)
+
+        # Validate ride is active
+        if ride.status != RideStatus.ACTIVE:
+            # TODO: Flash message "Can only mark attendance for active rides"
+            return RedirectResponse(
+                url=request.url_for('ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
+                status_code=303
+            )
+
+        # Get participant
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.id == participant_id,
+            RideParticipant.ride_id == ride_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        # Check if attendance already exists
+        existing = db.query(AttendanceRecord).filter(
+            AttendanceRecord.ride_id == ride_id,
+            AttendanceRecord.user_id == participant.user_id,
+            AttendanceRecord.checkpoint_type == checkpoint_type
+        ).first()
+
+        if existing:
+            # Update existing
+            existing.status = status
+            existing.marked_by = current_user.id
+            existing.marked_at = datetime.utcnow()
+            if status == 'absent' and reason:
+                existing.reason = reason
+        else:
+            # Create new
+            attendance = AttendanceRecord(
+                ride_id=ride_id,
+                user_id=participant.user_id,
+                checkpoint_type=checkpoint_type,
+                status=status,
+                marked_by=current_user.id,
+                marked_at=datetime.utcnow(),
+                reason=reason if status == 'absent' else None
+            )
+            db.add(attendance)
+
+        db.commit()
+
+        logger.info(f"Attendance marked: {status} for user {participant.user_id} by {current_user.id}")
+
+        return RedirectResponse(
+            url=request.url_for('ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
+            status_code=303
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error marking attendance: {e}")
+        return RedirectResponse(
+            url=request.url_for('ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
             status_code=303
         )

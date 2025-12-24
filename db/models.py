@@ -1,9 +1,10 @@
 import uuid
 from ast import Index
+from operator import and_
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, UniqueConstraint, Float
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, foreign
 from sqlalchemy.util import hybridproperty
 
 from sqlalchemy.dialects.postgresql import UUID
@@ -327,6 +328,18 @@ class RideParticipant(Base):
     user = relationship("User")
     vehicle_info = relationship("UserRideInformation", back_populates="ride_participations")
 
+    # Add this relationship
+    attendance_records = relationship(
+        "AttendanceRecord",
+        # Use a STRING for the join condition to avoid the NameError
+        primaryjoin="and_("
+                    "RideParticipant.ride_id == foreign(AttendanceRecord.ride_id), "
+                    "RideParticipant.user_id == foreign(AttendanceRecord.user_id)"
+                    ")",
+        viewonly=True,
+        lazy="selectin"
+    )
+
     # Constraints
     __table_args__ = (
         UniqueConstraint('ride_id', 'user_id', name='unique_ride_participant'),
@@ -342,11 +355,15 @@ class AttendanceRecord(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     ride_id = Column(UUID(as_uuid=True), ForeignKey("rides.id"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    checkpoint_type = Column(Enum(CheckpointType), nullable=False)
+    checkpoint_type = Column(Enum(CheckpointType), nullable=True)
     reached_at = Column(DateTime(timezone=True), server_default=func.now())
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     distance_traveled_km = Column(Float, nullable=True)
+
+    status = Column(String(20), default='present')  # 'present' or 'absent'
+    reason = Column(String(200), nullable=True)  # Reason if absent
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -4,12 +4,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, and_
+from sqlalchemy.orm import Session, joinedload, selectinload, contains_eager
 from starlette.responses import RedirectResponse
 
 from db.db_conn import get_db
-from db.models import OrganizationMember, User, RideParticipant, Organization, Ride, RideCheckpoint
+from db.models import OrganizationMember, User, RideParticipant, Organization, Ride, RideCheckpoint, AttendanceRecord
 from db.schemas import OrganizationListResponse, UpdateOrganization
 from db.schemas.organization import (
     CreateOrganization, AddOrganizationMember, OrganizationResponse,
@@ -630,15 +630,25 @@ async def org_ride_detail_page(
         return RedirectResponse(url=request.url_for('organization_rides_page', org_id=str(org_id)))
 
     organization = db.query(Organization).filter(Organization.id == org_id).first()
-
+    target_checkpoint = 'meetup'
     # Get participants
     participants = (
         db.query(RideParticipant)
-        .filter(RideParticipant.ride_id == ride_id)
         .options(
             joinedload(RideParticipant.user),  # Fetches User details
-            joinedload(RideParticipant.vehicle_info)  # Fetches Vehicle details
-        )
+            joinedload(RideParticipant.vehicle_info),  # Fetches Vehicle details
+        ).outerjoin(
+            AttendanceRecord,
+            and_(
+                RideParticipant.user_id == AttendanceRecord.user_id,
+                RideParticipant.ride_id == AttendanceRecord.ride_id,
+                AttendanceRecord.checkpoint_type == target_checkpoint
+            )
+        ).options(
+            contains_eager(RideParticipant.attendance_records)
+        ).filter(
+            RideParticipant.ride_id == ride_id
+        ).order_by(RideParticipant.role)
         .all()
     )
 
@@ -683,7 +693,8 @@ async def org_ride_detail_page(
             "paid_amount": p.paid_amount,
             "vehicle_info": f"{p.vehicle_info.make} // {p.vehicle_info.model}" if p.vehicle_info else None,
             "payment_date": p.payment_date.strftime("%Y-%m-%d") if p.payment_date else None,
-            "registered_at": p.registered_at.strftime("%Y-%m-%d")
+            "registered_at": p.registered_at.strftime("%Y-%m-%d"),
+            "attendance_records": p.attendance_records
         })
 
     # Get user role

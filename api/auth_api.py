@@ -182,7 +182,7 @@ async def login(
         user = UserService.get_user_by_phone_number(db=db, phone_number=phone_number)
         if not user:
             return jinja_templates.TemplateResponse(
-                "login.html",
+                "auth/login.html",
                 {
                     "request": request,
                     "error": "Invalid phone number or password"

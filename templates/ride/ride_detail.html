@@ -117,7 +117,7 @@
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">📍 Route</h2>
-                {% if ride.status != "completed" %}
+                {% if ride.status != "completed" or ride.status != "active" %}
                     {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
                     <a href="{{ url_for('add_checkpoints_page', org_id=organization.id, ride_id=ride.id) }}" class="btn btn-secondary btn-sm">
                         Edit Checkpoints
@@ -237,7 +237,7 @@
         </div>
 
         <!-- Share Link -->
-        {% if ride.status != "completed" %}
+        {% if not (ride.status != "completed" or ride.status != "active") %}
             {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
             <div class="share-box">
                 <p style="margin: 0 0 0.75rem 0; font-weight: 600; color: var(--text-primary);">
@@ -299,18 +299,65 @@
                             {% endif %}
                             <td>{{ participant.registered_at }}</td>
                             <td>{{ participant.vehicle_info }}</td>
-                            {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
-
                             <td>
-                                {% if ride.requires_payment and not participant.has_paid %}
-                                <form method="POST" action="/v1/rides/api/{{ ride.id }}/mark-payment" style="display: inline;">
-                                    <input type="hidden" name="participant_id" value="{{ participant.id }}">
-                                    <input type="hidden" name="amount" value="{{ ride.amount }}">
-                                    <button type="submit" class="btn btn-primary btn-sm">Mark Paid</button>
-                                </form>
-                                {% endif %}
-                            </td>
-                            {% endif %}
+    {% if user_role in ['founder', 'co_founder', 'admin'] %}
+
+        <!-- Attendance Marking (only if ride is ACTIVE) -->
+        {% if ride.status == 'active' %}
+            {% if participant.attendance_status == 'present' %}
+                <span class="status-badge status-active">✓ Present</span>
+            {% elif participant.attendance_status == 'absent' %}
+                <span class="status-badge status-inactive">✗ Absent</span>
+                {% if participant.absence_reason %}
+                <small style="display: block; color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
+                    Reason: {{ participant.absence_reason }}
+                </small>
+                {% endif %}
+            {% else %}
+                <!-- Not marked yet - Show forms -->
+                <form method="POST" action="{{ url_for('mark_attendance_web', ride_id=ride.id) }}" style="display: inline;">
+                    <input type="hidden" name="participant_id" value="{{ participant.id }}">
+                    <input type="hidden" name="status" value="present">
+                    <input type="hidden" name="checkpoint_type" value="meetup">
+                    <button type="submit" class="btn btn-primary btn-sm">Mark Present</button>
+                </form>
+
+                <button onclick="document.getElementById('absent-form-{{ participant.id }}').style.display='block'; this.style.display='none';" class="btn btn-secondary btn-sm">
+                    Mark Absent
+                </button>
+
+                <!-- Hidden absent form with reason -->
+                <div id="absent-form-{{ participant.id }}" style="display: none; margin-top: 0.5rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: 4px;">
+                    <form method="POST" action="{{ url_for('mark_attendance_web', ride_id=ride.id) }}">
+                        <input type="hidden" name="participant_id" value="{{ participant.id }}">
+                        <input type="hidden" name="status" value="absent">
+                        <input type="hidden" name="checkpoint_type" value="meetup">
+                        <input type="text" name="reason" class="form-control" placeholder="Reason (required)" maxlength="200" required style="margin-bottom: 0.5rem; font-size: 0.875rem;">
+                        <button type="submit" class="btn btn-danger btn-sm">Confirm Absent</button>
+                        <button type="button" onclick="this.parentElement.parentElement.style.display='none'; this.parentElement.parentElement.previousElementSibling.style.display='inline';" class="btn btn-secondary btn-sm">Cancel</button>
+                    </form>
+                </div>
+            {% endif %}
+        {% endif %}
+
+        <!-- Payment -->
+        {% if ride.requires_payment and not participant.has_paid %}
+        <form method="POST" action="/v1/rides/api/{{ ride.id }}/mark-payment" style="display: inline; margin-top: 0.5rem;">
+            <input type="hidden" name="participant_id" value="{{ participant.id }}">
+            <input type="hidden" name="amount" value="{{ ride.amount }}">
+            <button type="submit" class="btn btn-primary btn-sm">Mark Paid</button>
+        </form>
+        {% endif %}
+
+    {% else %}
+        <!-- Normal riders see limited info -->
+        {% if ride.status == 'active' and participant.attendance_status %}
+            <span class="status-badge {% if participant.attendance_status == 'present' %}status-active{% else %}status-inactive{% endif %}">
+                {% if participant.attendance_status == 'present' %}✓ Present{% else %}✗ Absent{% endif %}
+            </span>
+        {% endif %}
+    {% endif %}
+</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -362,6 +409,46 @@
             {% endif %}
         {% endif %}
     </main>
+
+
+<!-- Absent Reason Modal -->
+<div class="modal" id="absentModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Mark Absent</h3>
+            <button class="close-modal" onclick="closeAbsentModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('mark_attendance_web', ride_id=ride.id) }}" id="absentForm">
+            <input type="hidden" name="participant_id" id="absent_participant_id">
+            <input type="hidden" name="status" value="absent">
+            <input type="hidden" name="checkpoint_type" value="meetup">
+
+            <p style="color: var(--text-primary); margin-bottom: 1rem;">
+                Marking <strong id="absent_user_name"></strong> as absent
+            </p>
+
+            <div class="form-group">
+                <label class="form-label" for="reason">Reason for Absence *</label>
+                <textarea
+                    class="form-control"
+                    id="reason"
+                    name="reason"
+                    rows="3"
+                    maxlength="200"
+                    placeholder="e.g., Bike breakdown, Personal emergency, No-show"
+                    required
+                ></textarea>
+                <small style="color: var(--text-secondary); font-size: 0.75rem;">Max 200 characters</small>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-danger" style="flex: 1;">Mark Absent</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAbsentModal()" style="flex: 1;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 
