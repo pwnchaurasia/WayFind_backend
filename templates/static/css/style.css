@@ -479,3 +479,15 @@ body.auth-page {
         text-align: center;
     }
 }
+.present-absent-wrapper-div{
+     display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.present-absent-wrapper-div .present{
+    width: 75%;
+}
+
+.present-absent-wrapper-div .absent{
+    width: 75%;
+}

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from db.db_conn import get_db
 from db.models import Ride, RideParticipant, RideCheckpoint, User, OrganizationMember, Organization, \
@@ -262,11 +262,13 @@ async def join_ride_api(
         )
 
 
-@router.post("{ride_id}/mark-payment")
-async def mark_payment_api(
+@router.post("{ride_id}/mark-payment", name="mark_payment_web")
+async def mark_payment_web(
+        request: Request,
         ride_id: UUID,
-        payment_data: MarkPaymentRequest,
-        current_user: User = Depends(get_current_user),
+        participant_id: str = Form(...),
+        amount: str = Form(...),
+        current_user: User = Depends(get_current_user_web),
         db: Session = Depends(get_db)
 ):
     """Mark payment for participant (Admin only)"""
@@ -295,7 +297,7 @@ async def mark_payment_api(
 
         # Update participant
         participant = db.query(RideParticipant).filter(
-            RideParticipant.id == payment_data.participant_id,
+            RideParticipant.id == participant_id,
             RideParticipant.ride_id == ride_id
         ).first()
 
@@ -306,17 +308,17 @@ async def mark_payment_api(
             )
 
         participant.has_paid = True
-        participant.paid_amount = payment_data.amount
-        participant.payment_date = datetime.utcnow()
+        participant.paid_amount = amount
+        participant.payment_date = datetime.now(timezone.utc)
 
         db.commit()
 
         logger.info(f"Payment marked for participant {participant.id}")
 
-        return {
-            "status": "success",
-            "message": "Payment marked successfully"
-        }
+        return RedirectResponse(
+            url=request.url_for('org_ride_detail_page', org_id=str(ride.organization_id), ride_id=ride.id),
+            status_code=303
+        )
 
     except HTTPException:
         raise
