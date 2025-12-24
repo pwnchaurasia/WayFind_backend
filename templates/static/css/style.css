@@ -272,6 +272,10 @@ body {
     color: var(--text-disabled);
 }
 
+.status-danger{
+    color: var(--error-color);
+}
+
 /* Alerts */
 .alert {
     padding: 1rem;

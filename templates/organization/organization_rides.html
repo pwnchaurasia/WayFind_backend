@@ -207,7 +207,16 @@
                                 </div>
                             </div>
                         </div>
-                        <span class="status-badge status-pending">{{ ride.status }}</span>
+                        <div>
+                            <span class="status-badge status-pending">{{ ride.status }}</span>
+                            {% if ride.status == "planned" %}
+                                <a href="#" class="status-badge status-danger">Start Ride</a>
+                            {% endif %}
+                            {% if ride.status == "active" %}
+                                <a href="#" class="status-badge status-danger">Complete Ride</a>
+                            {% endif %}
+                        </div>
+
                     </div>
                     {% if ride.spots_left > 0 %}
                     <p style="color: var(--accent-green); font-size: 0.875rem; margin: 0;">
