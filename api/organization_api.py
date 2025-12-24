@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from starlette.responses import RedirectResponse
 
 from db.db_conn import get_db
@@ -632,9 +632,15 @@ async def org_ride_detail_page(
     organization = db.query(Organization).filter(Organization.id == org_id).first()
 
     # Get participants
-    participants = db.query(RideParticipant).filter(
-        RideParticipant.ride_id == ride_id
-    ).all()
+    participants = (
+        db.query(RideParticipant)
+        .filter(RideParticipant.ride_id == ride_id)
+        .options(
+            joinedload(RideParticipant.user),  # Fetches User details
+            joinedload(RideParticipant.vehicle_info)  # Fetches Vehicle details
+        )
+        .all()
+    )
 
     checkpoints = db.query(RideCheckpoint).filter(RideCheckpoint.ride_id == ride_id).all()
 
@@ -666,7 +672,7 @@ async def org_ride_detail_page(
 
     participants_data = []
     for p in participants:
-        user = db.query(User).filter(User.id == p.user_id).first()
+        user = p.user
         participants_data.append({
             "id": str(p.id),
             "user_id": str(p.user_id),
@@ -675,12 +681,12 @@ async def org_ride_detail_page(
             "role": p.role.value,
             "has_paid": p.has_paid,
             "paid_amount": p.paid_amount,
+            "vehicle_info": f"{p.vehicle_info.make} // {p.vehicle_info.model}" if p.vehicle_info else None,
             "payment_date": p.payment_date.strftime("%Y-%m-%d") if p.payment_date else None,
             "registered_at": p.registered_at.strftime("%Y-%m-%d")
         })
 
     # Get user role
-    from services.member_service import MemberService
     user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
 
     # Generate share link

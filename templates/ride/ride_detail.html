@@ -63,10 +63,12 @@
         <!-- Breadcrumb -->
         <div class="breadcrumb">
             <a href="{{ url_for('dashboard_page') }}">Dashboard</a>
+            {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
             <span>/</span>
             <a href="{{ url_for('organization_detail_page', org_id=organization.id) }}">{{ organization.name }}</a>
             <span>/</span>
             <a href="{{ url_for('organization_rides_page', org_id=organization.id) }}">Rides</a>
+            {% endif %}
             <span>/</span>
             <span>{{ ride.name }}</span>
         </div>
@@ -115,11 +117,14 @@
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">📍 Route</h2>
-                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
-                <a href="{{ url_for('add_checkpoints_page', org_id=organization.id, ride_id=ride.id) }}" class="btn btn-secondary btn-sm">
-                    Edit Checkpoints
-                </a>
+                {% if ride.status != "completed" %}
+                    {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                    <a href="{{ url_for('add_checkpoints_page', org_id=organization.id, ride_id=ride.id) }}" class="btn btn-secondary btn-sm">
+                        Edit Checkpoints
+                    </a>
+                    {% endif %}
                 {% endif %}
+
             </div>
             <div class="card-body">
                 <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -232,16 +237,18 @@
         </div>
 
         <!-- Share Link -->
-        {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
-        <div class="share-box">
-            <p style="margin: 0 0 0.75rem 0; font-weight: 600; color: var(--text-primary);">
-                Share this ride:
-            </p>
-            <div class="share-link">
-                <input type="text" id="shareLink" value="{{ ride.share_link }}" readonly>
-                <button class="copy-btn" onclick="copyLink()">Copy Link</button>
+        {% if ride.status != "completed" %}
+            {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+            <div class="share-box">
+                <p style="margin: 0 0 0.75rem 0; font-weight: 600; color: var(--text-primary);">
+                    Share this ride:
+                </p>
+                <div class="share-link">
+                    <input type="text" id="shareLink" value="{{ ride.share_link }}" readonly>
+                    <button class="copy-btn" onclick="copyLink()">Copy Link</button>
+                </div>
             </div>
-        </div>
+            {% endif %}
         {% endif %}
 
         <!-- Participants -->
@@ -261,6 +268,7 @@
                             <th>Payment</th>
                             {% endif %}
                             <th>Joined On</th>
+                            <th>Vehicle Info</th>
                             {% if user_role in ['founder', 'co_founder', 'admin'] %}
                             <th>Actions</th>
                             {% endif %}
@@ -290,7 +298,9 @@
                             </td>
                             {% endif %}
                             <td>{{ participant.registered_at }}</td>
-                            {% if user_role in ['founder', 'co_founder', 'admin'] %}
+                            <td>{{ participant.vehicle_info }}</td>
+                            {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+
                             <td>
                                 {% if ride.requires_payment and not participant.has_paid %}
                                 <form method="POST" action="/v1/rides/api/{{ ride.id }}/mark-payment" style="display: inline;">

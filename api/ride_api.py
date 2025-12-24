@@ -516,6 +516,8 @@ async def confirm_join_ride(
         ride_id: UUID,
         vehicle_info_id: Optional[str] = Form(None),
         current_user=Depends(get_current_user_web),
+        new_vehicle_make: Optional[str] = Form(None),
+        new_vehicle_model: Optional[str] = Form(None),
         db: Session = Depends(get_db)
 ):
     """Confirm joining ride after filling form"""
@@ -553,7 +555,16 @@ async def confirm_join_ride(
                     "message": "Sorry, this ride filled up while you were joining."
                 }
             )
-
+        if vehicle_info_id == 'new':
+            user_ride_information = UserRideInformation(
+                user_id=current_user.id,
+                make=new_vehicle_make,
+                model=new_vehicle_model,
+                is_pillion=False
+            )
+            db.add(user_ride_information)
+            db.commit()
+            vehicle_info_id = str(user_ride_information.id)
         # Create participant
         participant = RideParticipant(
             ride_id=ride_id,
