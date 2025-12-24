@@ -16,6 +16,7 @@ from db.schemas.ride import (
 from utils import ParticipantRole, RideType, CheckpointType
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideStatus
+from utils.permissions import PermissionChecker, PermissionDependency
 from utils.templates import jinja_templates
 from utils.app_logger import createLogger
 
@@ -662,3 +663,116 @@ async def confirm_join_ride(
     except Exception as e:
         db.rollback()
         return RedirectResponse(url=f"/v1/rides/join/{ride_id}", status_code=303)
+
+
+@router.post("/{ride_id}/start", name="start_ride_web")
+async def start_ride_web(
+        request: Request,
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """Start ride (Web form)"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            return RedirectResponse(
+                url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+                status_code=303
+            )
+
+        # Check permission
+        PermissionDependency.require_org_admin(ride.organization_id)
+
+        # Validate state
+        if ride.status != RideStatus.PLANNED:
+            # TODO: Add flash message
+            return RedirectResponse(
+                url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+                status_code=303
+            )
+
+        # Check checkpoints
+        checkpoints_count = db.query(func.count(RideCheckpoint.id)).filter(
+            RideCheckpoint.ride_id == ride_id
+        ).scalar() or 0
+
+        if checkpoints_count < 3:
+            # TODO: Add flash message "Add checkpoints first"
+            return RedirectResponse(
+                url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+                status_code=303
+            )
+
+        # Start ride
+        ride.status = RideStatus.ACTIVE
+        ride.started_at = datetime.utcnow()
+        db.commit()
+
+        logger.info(f"Ride {ride_id} started by {current_user.id}")
+
+        return RedirectResponse(
+            url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+            status_code=303
+        )
+
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error starting ride: {e}")
+        return RedirectResponse(
+            url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+            status_code=303
+        )
+
+
+@router.post("/{ride_id}/end", name="end_ride_web")
+async def end_ride_web(
+        request: Request,
+        ride_id: UUID,
+        current_user=Depends(get_current_user_web),
+        db: Session = Depends(get_db)
+):
+    """End ride (Web form)"""
+    if not current_user:
+        return RedirectResponse(url=request.url_for('login_page'))
+
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            return RedirectResponse(
+                url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+                status_code=303
+            )
+
+        # Check permission
+        PermissionDependency.require_org_admin(ride.organization_id)
+
+        # Validate state
+        if ride.status != RideStatus.ACTIVE:
+            return RedirectResponse(
+                url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+                status_code=303
+            )
+
+        # End ride
+        ride.status = RideStatus.COMPLETED
+        ride.ended_at = datetime.utcnow()
+        db.commit()
+
+        logger.info(f"Ride {ride_id} ended by {current_user.id}")
+
+        return RedirectResponse(
+            url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+            status_code=303
+        )
+
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error ending ride: {e}")
+        return RedirectResponse(
+            url=request.url_for('organization_rides_page', org_id=ride.organization_id),
+            status_code=303
+        )

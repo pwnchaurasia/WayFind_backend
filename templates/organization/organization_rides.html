@@ -207,13 +207,29 @@
                                 </div>
                             </div>
                         </div>
-                        <div>
-                            <span class="status-badge status-pending">{{ ride.status }}</span>
-                            {% if ride.status == "planned" %}
-                                <a href="#" class="status-badge status-danger">Start Ride</a>
-                            {% endif %}
-                            {% if ride.status == "active" %}
-                                <a href="#" class="status-badge status-danger">Complete Ride</a>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
+                            {% if ride.status == "draft" %}
+                                <span class="status-badge status-inactive">DRAFT</span>
+                            {% elif ride.status == "planned" %}
+                                <span class="status-badge status-pending">PLANNED</span>
+                                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                                <form method="POST" action="{{ url_for('start_ride_web', ride_id=ride.id) }}" style="display: inline;" onsubmit="return confirm('Start this ride now?');">
+                                    <button type="submit" onclick="event.stopPropagation();" class="btn btn-primary btn-sm" style="background: var(--success-color); border: none;">
+                                        ▶ Start Ride
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% elif ride.status == "active" %}
+                                <span class="status-badge status-active" style="background: #ef4444;">🔴 LIVE</span>
+                                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                                <form method="POST" action="{{ url_for('end_ride_web', ride_id=ride.id) }}" style="display: inline;" onsubmit="return confirm('End this ride? This cannot be undone.');">
+                                    <button type="submit" onclick="event.stopPropagation();" class="btn btn-danger btn-sm">
+                                        ⏹ End Ride
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% elif ride.status == "completed" %}
+                                <span class="status-badge status-inactive">COMPLETED</span>
                             {% endif %}
                         </div>
 
@@ -253,7 +269,31 @@
                                 </div>
                             </div>
                         </div>
-                        <span class="status-badge status-active">LIVE</span>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
+                            {% if ride.status == "draft" %}
+                                <span class="status-badge status-inactive">DRAFT</span>
+                            {% elif ride.status == "planned" %}
+                                <span class="status-badge status-pending">PLANNED</span>
+                                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                                <form method="POST" action="{{ url_for('start_ride_web', ride_id=ride.id) }}" style="display: inline;" onsubmit="return confirm('Start this ride now?');">
+                                    <button type="submit" onclick="event.stopPropagation();" class="btn btn-primary btn-sm" style="background: var(--success-color); border: none;">
+                                        ▶ Start Ride
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% elif ride.status == "active" %}
+                                <span class="status-badge status-active" style="background: #ef4444;">🔴 LIVE</span>
+                                {% if user_role in ['founder', 'co_founder', 'admin'] or user.role.value == 'super_admin' %}
+                                <form method="POST" action="{{ url_for('end_ride_web', ride_id=ride.id) }}" style="display: inline;" onsubmit="return confirm('End this ride? This cannot be undone.');">
+                                    <button type="submit" onclick="event.stopPropagation();" class="btn btn-danger btn-sm">
+                                        ⏹ End Ride
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% elif ride.status == "completed" %}
+                                <span class="status-badge status-inactive">COMPLETED</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
