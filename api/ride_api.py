@@ -843,7 +843,7 @@ async def mark_attendance_web(
             # Update existing
             existing.status = status
             existing.marked_by = current_user.id
-            existing.marked_at = datetime.utcnow()
+            existing.marked_at = datetime.now(timezone.utc)
             if status == 'absent' and reason:
                 existing.reason = reason
         else:
@@ -854,7 +854,7 @@ async def mark_attendance_web(
                 checkpoint_type=checkpoint_type,
                 status=status,
                 marked_by=current_user.id,
-                marked_at=datetime.utcnow(),
+                marked_at=datetime.now(timezone.utc),
                 reason=reason if status == 'absent' else None
             )
             db.add(attendance)
@@ -864,7 +864,7 @@ async def mark_attendance_web(
         logger.info(f"Attendance marked: {status} for user {participant.user_id} by {current_user.id}")
 
         return RedirectResponse(
-            url=request.url_for('ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
+            url=request.url_for('org_ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
             status_code=303
         )
 
@@ -874,6 +874,6 @@ async def mark_attendance_web(
         db.rollback()
         logger.exception(f"Error marking attendance: {e}")
         return RedirectResponse(
-            url=request.url_for('ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
+            url=request.url_for('org_ride_detail_page', org_id=ride.organization_id, ride_id=ride_id),
             status_code=303
         )

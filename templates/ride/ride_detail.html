@@ -2,6 +2,9 @@
 
 {% block title %} {{ ride.name  }} - Squadra {% endblock %}
 
+
+{% block navbar %}{% include 'partials/navbar.html' %}{% endblock %}
+
 {% block extra_css %}
 <style>
         .breadcrumb {
@@ -304,10 +307,11 @@
                                 <div style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 180px;">
 
                                     <!-- Attendance Marking (only if ride is ACTIVE) -->
+
                                     {% if ride.status == 'active' %}
-                                        {% if participant.attendance_status == 'present' %}
+                                        {% if participant.attendance_records and participant.attendance_records[0].status== 'present' %}
                                             <span class="status-badge status-active" style="width: 100%;">✓ Present</span>
-                                        {% elif participant.attendance_status == 'absent' %}
+                                        {% elif participant.attendance_records and participant.attendance_records[0].status == 'absent' %}
                                             <div>
                                                 <span class="status-badge status-inactive" style="width: 100%;">✗ Absent</span>
                                                 {% if participant.absence_reason %}
@@ -317,7 +321,7 @@
                                                 {% endif %}
                                             </div>
                                         {% else %}
-                                            <!-- Not marked yet -->
+                                            <!-- Not marked yet - Show buttons -->
                                             <div id="attendance-btns-{{ participant.id }}" class="present-absent-wrapper-div">
                                                 <form method="POST" action="{{ url_for('mark_attendance_web', ride_id=ride.id) }}" style="margin-bottom: 0.25rem; width:100%;">
                                                     <input type="hidden" name="participant_id" value="{{ participant.id }}">

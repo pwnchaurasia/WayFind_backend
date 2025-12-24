@@ -38,7 +38,7 @@ class User(Base):
     
     # New ride-related relationships
     ride_participations = relationship("RideParticipant", back_populates="user", cascade="all, delete-orphan")
-    attendance_records = relationship("AttendanceRecord", back_populates="user", cascade="all, delete-orphan")
+    attendance_records = relationship("AttendanceRecord", foreign_keys="[AttendanceRecord.user_id]", back_populates="user", cascade="all, delete-orphan")
     
     # Organization relationships
     organization_memberships = relationship("OrganizationMember", back_populates="user", cascade="all, delete-orphan")
@@ -357,9 +357,12 @@ class AttendanceRecord(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     checkpoint_type = Column(Enum(CheckpointType), nullable=True)
     reached_at = Column(DateTime(timezone=True), server_default=func.now())
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     distance_traveled_km = Column(Float, nullable=True)
+
+    marked_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    marked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
 
     status = Column(String(20), default='present')  # 'present' or 'absent'
     reason = Column(String(200), nullable=True)  # Reason if absent
@@ -369,7 +372,8 @@ class AttendanceRecord(Base):
 
     # Relationships
     ride = relationship("Ride", back_populates="attendance_records")
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    marker = relationship("User", foreign_keys=[marked_by])
 
     # Constraints
     __table_args__ = (
