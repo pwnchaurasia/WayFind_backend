@@ -13,3 +13,7 @@ class OTPVerification(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class GoogleLoginRequest(BaseModel):
+    token: str

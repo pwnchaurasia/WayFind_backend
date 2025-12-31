@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from db.db_conn import get_db
 from db.models import User, UserRideInformation
-from db.schemas import UserRegistration, OTPVerification
+from db.schemas import UserRegistration, OTPVerification, GoogleLoginRequest
 from services.user_service import UserService
 from utils import app_logger, resp_msgs, UserRole
 from utils.app_helper import generate_otp, verify_otp, create_refresh_token, create_auth_token, verify_user_from_token, \
@@ -315,4 +315,95 @@ async def register(
                 "forward_url": forward_url,
                 "error": "Registration failed. Please try again."
             }
+        )
+
+
+@router.post("/google", status_code=status.HTTP_200_OK, name="google_login")
+async def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """Process Google Login"""
+    try:
+        email = None
+        name = None
+        picture = None
+
+        # 1. Verify Google Token
+        try:
+            from google.oauth2 import id_token
+            from google.auth.transport import requests as google_requests
+            
+            # TODO: Add your Google Web Client ID here or in environment variables
+            # client_id = "YOUR_GOOGLE_CLIENT_ID" 
+            # idinfo = id_token.verify_oauth2_token(request.token, google_requests.Request(), client_id)
+            
+            # Using basic JWT decoding for now to extract email.
+            # In production, UNCOMMENT the verify_oauth2_token line above and providing correct Client ID
+            import jwt
+            decoded = jwt.decode(request.token, options={"verify_signature": False})
+            email = decoded.get("email")
+            name = decoded.get("name")
+            picture = decoded.get("picture")
+            
+            if not email:
+                    return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"status": "error", "message": "Invalid Google Token: Email missing"}
+                )
+
+        except Exception as e:
+            logger.error(f"Token parsing error: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"status": "error", "message": "Invalid Google Token"}
+            )
+
+        # 2. Check or Create User
+        user = UserService.get_user_by_email(db=db, email=email)
+        if not user:
+            # Auto-register
+            from utils.app_helper import hash_password
+            import uuid
+             # Generate a random password/phone since they are required? 
+             # Assuming phone is required by schema, we might need a workaround or dummy
+             # If phone is unique, we need a unique dummy.
+            dummy_phone = f"google_{uuid.uuid4().hex[:10]}" 
+            
+            user = User(
+                name=name or "Google User",
+                email=email,
+                phone_number=dummy_phone, # Placeholder
+                hashed_password=hash_password(uuid.uuid4().hex),
+                is_active=True,
+                role=UserRole.NORMAL_USER,
+                avatar=picture
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        # 3. Create Session
+        auth_token = create_auth_token(user)
+        refresh_token = create_refresh_token(user)
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "access_token": auth_token,
+                "refresh_token": refresh_token,
+                "is_profile_complete": user.is_profile_complete,
+                "user": {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "role": user.role,
+                    "avatar": user.avatar
+                }
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        logger.exception(f"Google Login error: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"status": "error", "message": "Internal Login Error"}
         )

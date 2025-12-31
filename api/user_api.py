@@ -1,11 +1,12 @@
-from fastapi import APIRouter, status, Depends, Request
+from fastapi import APIRouter, status, Depends, Request, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import User, DeviceInfo, UserRideInformation
-from db.schemas import UserProfile, UserResponse, GroupResponse, LocationUpdate,CreateVehicle
+from db.schemas import UserProfile, UserResponse, GroupResponse, LocationUpdate, CreateVehicle
+from db.schemas.vehicle import VehicleResponse
 from services.device_info_service import DeviceInfoService
 from services.group_service import GroupService
 from services.location_service import LocationService
@@ -187,7 +188,7 @@ async def create_vehicle(
             content={
                 "status": "success",
                 "message": "Vehicle added successfully",
-                "vehicle": VehicleResponse.from_orm(vehicle)
+                "vehicle": VehicleResponse.model_validate(vehicle).model_dump(mode="json")
             },
             status_code=status.HTTP_201_CREATED
         )
@@ -214,7 +215,7 @@ async def get_user_vehicles(
         return JSONResponse(
             content={
                 "status": "success",
-                "vehicles": [VehicleResponse.from_orm(vehicle) for vehicle in vehicles]
+                "vehicles": [VehicleResponse.model_validate(v).model_dump(mode="json") for v in vehicles]
             },
             status_code=status.HTTP_200_OK
         )
@@ -265,7 +266,7 @@ async def update_vehicle(
             content={
                 "status": "success",
                 "message": "Vehicle updated successfully",
-                "vehicle": VehicleResponse.from_orm(vehicle)
+                "vehicle": VehicleResponse.model_validate(vehicle).model_dump(mode="json")
             },
             status_code=status.HTTP_200_OK
         )

@@ -20,6 +20,10 @@ class UserService:
         return user
 
     @staticmethod
+    def get_user_by_email(email: str, db: Session):
+        return db.query(User).filter(User.email == email).first()
+
+    @staticmethod
     def create_user_setting(user: User, db: Session):
         user_settings = UserSetting(user_id=user.id, max_group_creation=3)  # Default settings
         db.add(user_settings)

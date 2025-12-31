@@ -183,6 +183,10 @@
             <div class="stat-label">Active Rides</div>
         </div>
         <div class="stat-card">
+            <div class="stat-value">{{ completed_rides }}</div>
+            <div class="stat-label">Completed Rides</div>
+        </div>
+        <div class="stat-card">
             <div class="stat-value">{{ total_rides }}</div>
             <div class="stat-label">Total Rides</div>
         </div>
@@ -282,8 +286,11 @@
                             <th>Name</th>
                             <th>Phone</th>
                             <th>Email</th>
-                            <th>First Joined</th>
-                            <th>Total Rides</th>
+                            <th>Rides Registered</th>
+                            <th>Rides Attended</th>
+                            <th>Attendance Rate</th>
+<!--                            <th>First Joined</th>-->
+<!--                            <th>Total Rides</th>-->
                         </tr>
                     </thead>
                     <tbody>
@@ -292,8 +299,16 @@
                             <td>{{ participant.name }}</td>
                             <td>{{ participant.phone }}</td>
                             <td>{{ participant.email or 'N/A' }}</td>
-                            <td>{{ participant.created_at }}</td>
-                            <td>{{ participant.rides_count }}</td>
+                            <td>{{ participant.total_rides_registered }}</td>
+                            <td>{{ participant.total_rides_attended }}</td>
+                            <td>
+                                <span class="status-badge {% if participant.attendance_rate >= 80 %}status-active{% elif participant.attendance_rate >= 50 %}status-pending{% else %}status-inactive{% endif %}">
+                                    {{ participant.attendance_rate }}%
+                                </span>
+                            </td>
+<!--                            <td>{{ participant.created_at }}</td>-->
+<!--                            <td>{{ participant.rides_count }}</td>-->
+<!--                            <td>{{ participant.rides_count }}</td>-->
                         </tr>
                         {% endfor %}
                     </tbody>

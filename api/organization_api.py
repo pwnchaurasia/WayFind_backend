@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, distinct, case
 from sqlalchemy.orm import Session, joinedload, selectinload, contains_eager
 from starlette.responses import RedirectResponse
 
@@ -104,9 +104,43 @@ async def get_all_organizations(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get all organizations"""
+    """
+    Get organizations based on user role:
+    - Super Admin: Can see ALL organizations
+    - Normal User: Can only see organizations they are a member of
+    
+    This is a production security measure to prevent data leakage.
+    """
     try:
-        organizations = OrganizationService.get_all_organizations(db, skip, limit, is_active)
+        # Super Admin can see all organizations
+        if current_user.role == UserRole.SUPER_ADMIN:
+            organizations = OrganizationService.get_all_organizations(db, skip, limit, is_active)
+        else:
+            # Normal users can only see organizations they belong to
+            user_org_memberships = db.query(OrganizationMember).filter(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.is_active == True
+            ).all()
+            
+            user_org_ids = [m.organization_id for m in user_org_memberships]
+            
+            if not user_org_ids:
+                # User is not a member of any organization
+                return {
+                    "status": "success",
+                    "organizations": [],
+                    "total": 0
+                }
+            
+            # Get only user's organizations
+            query = db.query(Organization).filter(
+                Organization.id.in_(user_org_ids)
+            )
+            
+            if is_active is not None:
+                query = query.filter(Organization.is_active == is_active)
+            
+            organizations = query.offset(skip).limit(limit).all()
 
         orgs_with_count = []
         for org in organizations:
@@ -114,12 +148,27 @@ async def get_all_organizations(
             org_response = OrganizationListResponse.model_validate(org)
             org_dict = org_response.model_dump(mode='json')
             org_dict['members_count'] = members_count
+            
+            # Add user's role in this org for frontend to determine UI
+            if current_user.role != UserRole.SUPER_ADMIN:
+                user_membership = db.query(OrganizationMember).filter(
+                    OrganizationMember.organization_id == org.id,
+                    OrganizationMember.user_id == current_user.id,
+                    OrganizationMember.is_active == True
+                ).first()
+                org_dict['user_role'] = user_membership.role.value if user_membership else None
+            else:
+                org_dict['user_role'] = 'super_admin'
+            
             orgs_with_count.append(org_dict)
+
+        total_count = len(orgs_with_count) if current_user.role != UserRole.SUPER_ADMIN else OrganizationService.get_organizations_count(db, is_active)
 
         return {
             "status": "success",
             "organizations": orgs_with_count,
-            "total": OrganizationService.get_organizations_count(db, is_active)
+            "total": total_count,
+            "is_super_admin": current_user.role == UserRole.SUPER_ADMIN
         }
 
     except Exception as e:
@@ -311,16 +360,49 @@ async def get_organization_members(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get organization members"""
+    """Get organization members with user details"""
     try:
         members = OrganizationService.get_organization_members(db, org_id, is_active)
+        
+        # Check if current user is org admin (to show sensitive data like phone)
+        user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+        is_admin = user_role in [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN] if user_role else False
+        is_super_admin = current_user.role == UserRole.SUPER_ADMIN
+        can_see_sensitive = is_admin or is_super_admin
+
+        members_data = []
+        for member in members:
+            # Get user details
+            user = db.query(User).filter(User.id == member.user_id).first()
+            
+            member_dict = {
+                "id": str(member.id),
+                "organization_id": str(member.organization_id),
+                "user_id": str(member.user_id),
+                "role": member.role.value if hasattr(member.role, 'value') else member.role,
+                "is_active": member.is_active,
+                "created_at": member.created_at.isoformat() if member.created_at else None,
+                "updated_at": member.updated_at.isoformat() if member.updated_at else None,
+                # User details
+                "name": user.name if user else None,
+                "email": user.email if user else None,
+                "profile_picture": user.profile_picture if user else None,
+            }
+            
+            # Only include sensitive info for admins
+            if can_see_sensitive:
+                member_dict["phone_number"] = user.phone_number if user else None
+            
+            members_data.append(member_dict)
+        
+        # Sort alphabetically by name, then by role priority
+        role_priority = {"founder": 0, "co_founder": 1, "admin": 2}
+        members_data.sort(key=lambda m: (role_priority.get(m.get("role"), 99), m.get("name", "").lower()))
 
         return {
             "status": "success",
-            "members": [
-                OrganizationMemberResponse.model_validate(member).model_dump(mode='json')
-                for member in members
-            ]
+            "members": members_data,
+            "is_admin": can_see_sensitive
         }
 
     except Exception as e:
@@ -577,13 +659,80 @@ async def organization_detail_page(
             "created_at": member.created_at.strftime("%Y-%m-%d")
         })
 
-    # Get stats
-    from db.models import Ride
-    from utils.enums import RideStatus
+    org_member_user_ids = [m['user_id'] for m in members_data]
 
+    ride_participants_query = (
+        db.query(
+            User.id.label('user_id'),
+            User.name,
+            User.phone_number,
+            User.email,
+            func.count(distinct(RideParticipant.ride_id)).label('total_rides_registered'),  # All rides (any status)
+            func.count(distinct(
+                case(
+                    (Ride.status == RideStatus.COMPLETED, RideParticipant.ride_id),
+                    else_=None
+                )
+            )).label('total_completed_rides'),  # Only COMPLETED rides
+            func.count(distinct(
+                case(
+                    (
+                        and_(
+                            Ride.status == RideStatus.COMPLETED,
+                            AttendanceRecord.status == 'present'
+                        ),
+                        AttendanceRecord.ride_id
+                    ),
+                    else_=None
+                )
+            )).label('total_rides_attended')  # Only COMPLETED + marked present
+        )
+        .join(RideParticipant, User.id == RideParticipant.user_id)
+        .join(Ride, RideParticipant.ride_id == Ride.id)
+        .outerjoin(
+            AttendanceRecord,
+            and_(
+                AttendanceRecord.user_id == User.id,
+                AttendanceRecord.ride_id == Ride.id,
+                AttendanceRecord.checkpoint_type == 'meetup'
+            )
+        )
+        .filter(
+            Ride.organization_id == org_id,
+            ~User.id.in_(org_member_user_ids)  # Exclude org members
+        )
+        .group_by(User.id, User.name, User.phone_number, User.email)
+        .all()
+    )
+
+    # Format ride participants data
+    ride_participants_data = []
+    for p in ride_participants_query:
+        attendance_rate = 0
+        if p.total_completed_rides > 0:  # Only calculate if there are COMPLETED rides
+            attendance_rate = round((p.total_rides_attended / p.total_completed_rides) * 100, 1)
+
+        ride_participants_data.append({
+            "user_id": str(p.user_id),
+            "name": p.name or "No Name",
+            "phone": p.phone_number or "N/A",
+            "email": p.email or "N/A",
+            "total_rides_registered": p.total_rides_registered,  # All rides (PLANNED + ACTIVE + COMPLETED)
+            "total_completed_rides": p.total_completed_rides,  # Only COMPLETED
+            "total_rides_attended": p.total_rides_attended,  # Only COMPLETED + present
+            "attendance_rate": attendance_rate,  # (attended / completed) * 100
+        })
+
+
+    # Get stats
     active_rides = db.query(func.count(Ride.id)).filter(
         Ride.organization_id == org_id,
         Ride.status == RideStatus.ACTIVE
+    ).scalar() or 0
+
+    completed_rides = db.query(func.count(Ride.id)).filter(
+        Ride.organization_id == org_id,
+        Ride.status == RideStatus.COMPLETED
     ).scalar() or 0
 
     total_rides = db.query(func.count(Ride.id)).filter(
@@ -606,8 +755,11 @@ async def organization_detail_page(
             },
             "members": members_data,
             "members_count": len(members_data),
+            "ride_participants": ride_participants_data,  # NEW
+            "ride_participants_count": len(ride_participants_data),  # NEW
             "active_rides": active_rides,
             "total_rides": total_rides,
+            "completed_rides": completed_rides,
             "user_role": user_role.value if user_role else None
         }
     )
@@ -741,13 +893,39 @@ async def organization_rides_page(
         current_user=Depends(get_current_user_web),
         db: Session = Depends(get_db)
 ):
-    """Organization rides page (Web)"""
-    if not current_user:
-        return RedirectResponse(url=request.url_for('login_page'))
+    """
+    Organization rides page - supports both HTML (web) and JSON (mobile)
+    Returns JSON if Accept header is 'application/json', otherwise returns HTML
+    """
+    # Check Accept header to determine response type
+    accept_header = request.headers.get("accept", "")
+    wants_json = "application/json" in accept_header
+
+    # For JSON requests, require proper authentication
+    if wants_json:
+        from utils.dependencies import get_current_user
+        from utils.app_helper import verify_user_from_token
+        
+        # Get token from Authorization header
+        auth_header = request.headers.get("authorization", "")
+        token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else None
+        
+        if token:
+            is_verified, msg, current_user = verify_user_from_token(token, db)
+            if not is_verified or not current_user:
+                return {"status": "error", "message": "Authentication required"}
+        else:
+            return {"status": "error", "message": "Authentication required"}
+    else:
+        # HTML request - check web auth
+        if not current_user:
+            return RedirectResponse(url=request.url_for('login_page'))
 
     # Get organization
     organization = db.query(Organization).filter(Organization.id == org_id).first()
     if not organization:
+        if wants_json:
+            return {"status": "error", "message": "Organization not found"}
         return RedirectResponse(url=request.url_for('dashboard_page'))
 
     # Get user role
@@ -761,6 +939,7 @@ async def organization_rides_page(
     upcoming_rides = []
     active_rides = []
     past_rides = []
+    all_rides = []
 
     for ride in rides:
         participants_count = db.query(func.count(RideParticipant.id)).filter(
@@ -782,11 +961,13 @@ async def organization_rides_page(
             "requires_payment": ride.requires_payment,
             "amount": ride.amount,
             "paid_count": paid_count,
-            "ride_type": ride.ride_type,
+            "ride_type": ride.ride_type.value if ride.ride_type else None,
             "scheduled_date": ride.scheduled_date.strftime("%Y-%m-%d") if ride.scheduled_date else None,
             "created_at": ride.created_at.strftime("%Y-%m-%d"),
             "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None
         }
+
+        all_rides.append(ride_data)
 
         if ride.status == RideStatus.PLANNED:
             upcoming_rides.append(ride_data)
@@ -795,6 +976,22 @@ async def organization_rides_page(
         else:
             past_rides.append(ride_data)
 
+    # Return JSON for mobile
+    if wants_json:
+        return {
+            "status": "success",
+            "rides": all_rides,
+            "upcoming_rides": upcoming_rides,
+            "active_rides": active_rides,
+            "past_rides": past_rides,
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name
+            },
+            "user_role": user_role.value if user_role else None
+        }
+
+    # Return HTML for web
     return jinja_templates.TemplateResponse(
         "organization/organization_rides.html",
         {

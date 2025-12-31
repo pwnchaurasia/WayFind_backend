@@ -1,5 +1,5 @@
 # Auth schemas
-from db.schemas.auth import UserRegistration, OTPVerification, Token
+from db.schemas.auth import UserRegistration, OTPVerification, Token, GoogleLoginRequest
 
 # User schemas
 from db.schemas.user import UserProfile, UserResponse, UserWithLocation
@@ -36,7 +36,7 @@ from db.schemas.attendance import (
 
 __all__ = [
     # Auth
-    "UserRegistration", "OTPVerification", "Token",
+    "UserRegistration", "OTPVerification", "Token", "GoogleLoginRequest"
 
     # User
     "UserProfile", "UserResponse", "UserWithLocation",

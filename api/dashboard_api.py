@@ -2,16 +2,18 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from starlette.responses import JSONResponse
 
 from db.db_conn import get_db
 from db.models import User, Ride, AttendanceRecord, RideParticipant, OrganizationMember, Organization
 from services.organization_service import OrganizationService
 from utils import app_logger, RideStatus, UserRole, OrganizationRole
-from utils.dependencies import get_current_user_web
+from utils.dependencies import get_current_user_web, get_current_user
 from utils.templates import jinja_templates
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 logger = app_logger.createLogger("app")
+
 
 @router.get("/", name="dashboard_page")
 async def dashboard(
@@ -305,3 +307,104 @@ def rider_dashboard(request: Request, current_user, db: Session):
             "groups_joined": len(orgs_data)
         }
     )
+
+
+@router.get("/mobile", name="mobile_dashboard")
+async def mobile_dashboard(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+):
+    """
+    Mobile-friendly JSON dashboard API.
+    Returns stats based on user role:
+    - Super Admin: System-wide stats
+    - Org Admin: Their organizations' stats
+    - Rider: Personal ride stats
+    """
+    try:
+        response_data = {
+            "user": {
+                "id": str(current_user.id),
+                "name": current_user.name,
+                "role": current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+            }
+        }
+
+        if current_user.role == UserRole.SUPER_ADMIN:
+            # Super Admin sees everything
+            response_data["stats"] = {
+                "total_organizations": OrganizationService.get_organizations_count(db, is_active=True),
+                "total_users": db.query(func.count(User.id)).filter(User.is_active == True).scalar() or 0,
+                "active_rides": db.query(func.count(Ride.id)).filter(Ride.status == RideStatus.ACTIVE).scalar() or 0,
+                "completed_rides": db.query(func.count(Ride.id)).filter(Ride.status == RideStatus.COMPLETED).scalar() or 0,
+                "upcoming_rides": db.query(func.count(Ride.id)).filter(Ride.status == RideStatus.PLANNED).scalar() or 0
+            }
+            response_data["is_super_admin"] = True
+
+        else:
+            # Check if user is org admin
+            org_admin_membership = db.query(OrganizationMember).filter(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+                OrganizationMember.is_active == True,
+                OrganizationMember.is_deleted == False
+            ).first()
+
+            # Get user's organizations (as member)
+            user_orgs = db.query(OrganizationMember).filter(
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.is_active == True,
+                OrganizationMember.is_deleted == False
+            ).all()
+
+            my_organizations = len(user_orgs)
+
+            # Get user's ride stats
+            total_rides_joined = db.query(func.count(RideParticipant.id)).filter(
+                RideParticipant.user_id == current_user.id
+            ).scalar() or 0
+
+            completed_rides = db.query(func.count(RideParticipant.id)).join(
+                Ride
+            ).filter(
+                RideParticipant.user_id == current_user.id,
+                Ride.status == RideStatus.COMPLETED
+            ).scalar() or 0
+
+            upcoming_rides = db.query(func.count(RideParticipant.id)).join(
+                Ride
+            ).filter(
+                RideParticipant.user_id == current_user.id,
+                Ride.status == RideStatus.PLANNED
+            ).scalar() or 0
+
+            active_rides = db.query(func.count(RideParticipant.id)).join(
+                Ride
+            ).filter(
+                RideParticipant.user_id == current_user.id,
+                Ride.status == RideStatus.ACTIVE
+            ).scalar() or 0
+
+            response_data["stats"] = {
+                "my_organizations": my_organizations,
+                "total_rides_joined": total_rides_joined,
+                "completed_rides": completed_rides,
+                "upcoming_rides": upcoming_rides,
+                "active_rides": active_rides
+            }
+            response_data["is_org_admin"] = org_admin_membership is not None
+            response_data["is_super_admin"] = False
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                **response_data
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error fetching mobile dashboard: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": "Failed to fetch dashboard data"},
+            status_code=500
+        )
