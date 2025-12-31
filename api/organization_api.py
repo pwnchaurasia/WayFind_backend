@@ -352,16 +352,47 @@ async def add_member_to_organization(
         )
 
 
-@router.get("/{org_id}/members", response_model=dict, name='get_organization_members')
+@router.get("/{org_id}/members", name='get_organization_members')
 async def get_organization_members(
         request: Request,
         org_id: UUID,
-        is_active: Optional[bool] = None,
-        current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get organization members with user details"""
+    """Get organization members with user details - supports both web and mobile"""
     try:
+        # Check if this is an API request (has Authorization header) or web request (has cookies)
+        auth_header = request.headers.get("authorization", "")
+        accept_header = request.headers.get("accept", "")
+        
+        # If Authorization header is present, treat as API/mobile request
+        is_api_request = bool(auth_header and auth_header.startswith("Bearer "))
+        
+        logger.info(f"Members API - Auth header present: {bool(auth_header)}, Accept: {accept_header[:50]}, is_api: {is_api_request}")
+        
+        # Get current user based on request type
+        if is_api_request:
+            # Mobile/API request - get token from Authorization header
+            from utils.app_helper import verify_user_from_token
+            
+            token = auth_header.replace("Bearer ", "")
+            
+            if not token:
+                return {"status": "error", "message": "Authentication required"}
+            
+            is_verified, msg, current_user = verify_user_from_token(token, db)
+            if not is_verified or not current_user:
+                return {"status": "error", "message": msg or "Authentication required"}
+        else:
+            # Web request - get token from cookie
+            access_token = request.cookies.get("access_token")
+            if not access_token:
+                return RedirectResponse(url=request.url_for('login_page'))
+            
+            from utils.app_helper import verify_user_from_token
+            is_verified, msg, current_user = verify_user_from_token(access_token, db)
+            if not is_verified or not current_user:
+                return RedirectResponse(url=request.url_for('login_page'))
+        
         members = OrganizationService.get_organization_members(db, org_id, is_active)
         
         # Check if current user is org admin (to show sensitive data like phone)
@@ -890,41 +921,48 @@ async def org_ride_detail_page(
 async def organization_rides_page(
         request: Request,
         org_id: UUID,
-        current_user=Depends(get_current_user_web),
         db: Session = Depends(get_db)
 ):
     """
     Organization rides page - supports both HTML (web) and JSON (mobile)
-    Returns JSON if Accept header is 'application/json', otherwise returns HTML
+    Uses Authorization header to detect API requests
     """
-    # Check Accept header to determine response type
+    # Check if this is an API request (has Authorization header) or web request
+    auth_header = request.headers.get("authorization", "")
     accept_header = request.headers.get("accept", "")
-    wants_json = "application/json" in accept_header
+    
+    # If Authorization header is present, treat as API/mobile request
+    is_api_request = bool(auth_header and auth_header.startswith("Bearer "))
+    
+    logger.info(f"Rides API - Auth header present: {bool(auth_header)}, Accept: {accept_header[:50]}, is_api: {is_api_request}")
 
-    # For JSON requests, require proper authentication
-    if wants_json:
-        from utils.dependencies import get_current_user
+    # For API requests, verify token from Authorization header
+    if is_api_request:
         from utils.app_helper import verify_user_from_token
         
-        # Get token from Authorization header
-        auth_header = request.headers.get("authorization", "")
-        token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else None
+        token = auth_header.replace("Bearer ", "")
         
-        if token:
-            is_verified, msg, current_user = verify_user_from_token(token, db)
-            if not is_verified or not current_user:
-                return {"status": "error", "message": "Authentication required"}
-        else:
+        if not token:
             return {"status": "error", "message": "Authentication required"}
+        
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
     else:
-        # HTML request - check web auth
-        if not current_user:
+        # Web request - get token from cookie
+        access_token = request.cookies.get("access_token")
+        if not access_token:
+            return RedirectResponse(url=request.url_for('login_page'))
+        
+        from utils.app_helper import verify_user_from_token
+        is_verified, msg, current_user = verify_user_from_token(access_token, db)
+        if not is_verified or not current_user:
             return RedirectResponse(url=request.url_for('login_page'))
 
     # Get organization
     organization = db.query(Organization).filter(Organization.id == org_id).first()
     if not organization:
-        if wants_json:
+        if is_api_request:
             return {"status": "error", "message": "Organization not found"}
         return RedirectResponse(url=request.url_for('dashboard_page'))
 
@@ -977,7 +1015,7 @@ async def organization_rides_page(
             past_rides.append(ride_data)
 
     # Return JSON for mobile
-    if wants_json:
+    if is_api_request:
         return {
             "status": "success",
             "rides": all_rides,
