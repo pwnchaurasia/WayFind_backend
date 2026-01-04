@@ -17,7 +17,7 @@ logger = createLogger("member_routes")
 router = APIRouter(prefix="/organizations", tags=["members"])
 
 
-@router.get("/{org_id}/members", name="organization_members_page")
+@router.get("/{org_id}/members/manage", name="organization_members_page_manage")
 async def organization_members_page(
         request: Request,
         org_id: UUID,
@@ -159,6 +159,6 @@ async def remove_member_web(
         logger.exception(f"Error removing member: {e}")
 
     return RedirectResponse(
-        url=request.url_for('organization_members_page', org_id=str(org_id)),
+        url=request.url_for('organization_members_page_manage', org_id=str(org_id)),
         status_code=303
     )

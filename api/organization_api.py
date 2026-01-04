@@ -18,6 +18,7 @@ from db.schemas.organization import (
 from services.member_service import MemberService
 from services.organization_service import OrganizationService
 from utils import app_logger, resp_msgs, RideStatus, CheckpointType
+from utils.app_helper import verify_user_from_token
 from utils.dependencies import get_current_user, get_current_user_web
 from utils.enums import OrganizationRole, UserRole, RideType
 from utils.permissions import PermissionChecker, PermissionDependency
@@ -352,13 +353,14 @@ async def add_member_to_organization(
         )
 
 
-@router.get("/{org_id}/members", name='get_organization_members')
+@router.get("/{org_id}/members", name='get_organization_members_api')
 async def get_organization_members(
         request: Request,
         org_id: UUID,
+        is_active: Optional[bool] = None,
         db: Session = Depends(get_db)
 ):
-    """Get organization members with user details - supports both web and mobile"""
+    """Get organization members with user details and attendance stats - supports both web and mobile"""
     try:
         # Check if this is an API request (has Authorization header) or web request (has cookies)
         auth_header = request.headers.get("authorization", "")
@@ -400,16 +402,82 @@ async def get_organization_members(
         is_admin = user_role in [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN] if user_role else False
         is_super_admin = current_user.role == UserRole.SUPER_ADMIN
         can_see_sensitive = is_admin or is_super_admin
+        
+        # Calculate attendance stats for each member
+        member_user_ids = [m.user_id for m in members]
+        
+        # Query attendance data for all member users at once
+        attendance_query = (
+            db.query(
+                RideParticipant.user_id,
+                func.count(distinct(RideParticipant.ride_id)).label('total_rides_registered'),
+                func.count(distinct(
+                    case(
+                        (Ride.status == RideStatus.COMPLETED, RideParticipant.ride_id),
+                        else_=None
+                    )
+                )).label('total_completed_rides'),
+                func.count(distinct(
+                    case(
+                        (
+                            and_(
+                                Ride.status == RideStatus.COMPLETED,
+                                AttendanceRecord.status == 'present'
+                            ),
+                            AttendanceRecord.ride_id
+                        ),
+                        else_=None
+                    )
+                )).label('total_rides_attended')
+            )
+            .join(Ride, RideParticipant.ride_id == Ride.id)
+            .outerjoin(
+                AttendanceRecord,
+                and_(
+                    AttendanceRecord.user_id == RideParticipant.user_id,
+                    AttendanceRecord.ride_id == Ride.id,
+                    AttendanceRecord.checkpoint_type == 'meetup'
+                )
+            )
+            .filter(
+                Ride.organization_id == org_id,
+                RideParticipant.user_id.in_(member_user_ids)
+            )
+            .group_by(RideParticipant.user_id)
+            .all()
+        )
+        
+        # Create a lookup dict for attendance data
+        attendance_lookup = {}
+        for a in attendance_query:
+            attendance_rate = 0
+            if a.total_completed_rides > 0:
+                attendance_rate = round((a.total_rides_attended / a.total_completed_rides) * 100, 1)
+            attendance_lookup[str(a.user_id)] = {
+                "total_rides_registered": a.total_rides_registered,
+                "total_completed_rides": a.total_completed_rides,
+                "total_rides_attended": a.total_rides_attended,
+                "attendance_rate": attendance_rate
+            }
 
         members_data = []
         for member in members:
             # Get user details
             user = db.query(User).filter(User.id == member.user_id).first()
+            user_id_str = str(member.user_id)
+            
+            # Get attendance stats for this member
+            attendance = attendance_lookup.get(user_id_str, {
+                "total_rides_registered": 0,
+                "total_completed_rides": 0,
+                "total_rides_attended": 0,
+                "attendance_rate": 0
+            })
             
             member_dict = {
                 "id": str(member.id),
                 "organization_id": str(member.organization_id),
-                "user_id": str(member.user_id),
+                "user_id": user_id_str,
                 "role": member.role.value if hasattr(member.role, 'value') else member.role,
                 "is_active": member.is_active,
                 "created_at": member.created_at.isoformat() if member.created_at else None,
@@ -417,7 +485,12 @@ async def get_organization_members(
                 # User details
                 "name": user.name if user else None,
                 "email": user.email if user else None,
-                "profile_picture": user.profile_picture if user else None,
+                "profile_picture": user.profile_picture_url if user and hasattr(user, 'profile_picture_url') else None,
+                # Attendance stats
+                "total_rides_registered": attendance["total_rides_registered"],
+                "total_completed_rides": attendance["total_completed_rides"],
+                "total_rides_attended": attendance["total_rides_attended"],
+                "attendance_rate": attendance["attendance_rate"],
             }
             
             # Only include sensitive info for admins
@@ -433,11 +506,353 @@ async def get_organization_members(
         return {
             "status": "success",
             "members": members_data,
-            "is_admin": can_see_sensitive
+            "is_admin": can_see_sensitive,
+            "current_user_role": user_role.value if user_role else None,
+            "is_super_admin": is_super_admin
         }
 
     except Exception as e:
         logger.exception(f"Error getting members: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@router.post("/{org_id}/members/{member_id}/toggle-status", response_model=dict)
+async def toggle_member_status_api(
+        request: Request,
+        org_id: UUID,
+        member_id: UUID,
+        db: Session = Depends(get_db)
+):
+    """Toggle member active status (mobile/API endpoint)"""
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"status": "error", "message": "Authentication required"}
+
+        token = auth_header.replace("Bearer ", "")
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
+        
+        # Toggle member status using MemberService
+        is_toggled, member, error = MemberService.toggle_member_status(
+            db, org_id, member_id, current_user.id
+        )
+        
+        if not is_toggled:
+            return {"status": "error", "message": error or "Failed to toggle member status"}
+        
+        return {
+            "status": "success",
+            "message": f"Member {'activated' if member.is_active else 'deactivated'} successfully",
+            "is_active": member.is_active
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error toggling member status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@router.delete("/{org_id}/members/{member_id}", response_model=dict)
+async def remove_member_api(
+        request: Request,
+        org_id: UUID,
+        member_id: UUID,
+        db: Session = Depends(get_db)
+):
+    """Remove member from organization - soft delete (mobile/API endpoint)"""
+    try:
+        # Get token from Authorization header
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"status": "error", "message": "Authentication required"}
+
+        token = auth_header.replace("Bearer ", "")
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
+        
+        # Remove member using MemberService (soft delete)
+        is_removed, error = MemberService.remove_member(
+            db, org_id, member_id, current_user.id
+        )
+        
+        if not is_removed:
+            return {"status": "error", "message": error or "Failed to remove member"}
+        
+        return {
+            "status": "success",
+            "message": "Member removed successfully"
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error removing member: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+# ============================================
+# JOIN CODE / INVITE LINK ENDPOINTS
+# ============================================
+
+import secrets
+import string
+from datetime import datetime
+
+def generate_join_code(length: int = 8) -> str:
+    """Generate a random alphanumeric join code"""
+    alphabet = string.ascii_uppercase + string.digits
+    # Exclude confusing characters
+    alphabet = alphabet.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+@router.get("/{org_id}/join-code", response_model=dict)
+async def get_organization_join_code(
+        request: Request,
+        org_id: UUID,
+        db: Session = Depends(get_db)
+):
+    """Get organization join code (admins only)"""
+    try:
+        # Auth check
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"status": "error", "message": "Authentication required"}
+        
+        token = auth_header.replace("Bearer ", "")
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
+        
+        # Check if user is admin of this org
+        user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+        is_admin = user_role in [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]
+        is_super_admin = current_user.role == UserRole.SUPER_ADMIN
+        
+        if not is_admin and not is_super_admin:
+            return {"status": "error", "message": "Only admins can access join code"}
+        
+        # Get organization
+        org = db.query(Organization).filter(
+            Organization.id == org_id,
+            Organization.is_deleted == False
+        ).first()
+        
+        if not org:
+            return {"status": "error", "message": "Organization not found"}
+        
+        # Generate join code if not exists
+        if not org.join_code:
+            org.join_code = generate_join_code()
+            org.join_code_created_at = datetime.utcnow()
+            db.commit()
+            db.refresh(org)
+        
+        return {
+            "status": "success",
+            "join_code": org.join_code,
+            "join_url": f"squadra://join/{org.join_code}",
+            "created_at": org.join_code_created_at.isoformat() if org.join_code_created_at else None
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error getting join code: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@router.post("/{org_id}/join-code/refresh", response_model=dict)
+async def refresh_organization_join_code(
+        request: Request,
+        org_id: UUID,
+        db: Session = Depends(get_db)
+):
+    """Refresh/regenerate organization join code (admins only)"""
+    try:
+        # Auth check
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"status": "error", "message": "Authentication required"}
+        
+        token = auth_header.replace("Bearer ", "")
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
+        
+        # Check if user is admin of this org
+        user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
+        is_admin = user_role in [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]
+        is_super_admin = current_user.role == UserRole.SUPER_ADMIN
+        
+        if not is_admin and not is_super_admin:
+            return {"status": "error", "message": "Only admins can refresh join code"}
+        
+        # Get organization
+        org = db.query(Organization).filter(
+            Organization.id == org_id,
+            Organization.is_deleted == False
+        ).first()
+        
+        if not org:
+            return {"status": "error", "message": "Organization not found"}
+        
+        # Generate new join code
+        org.join_code = generate_join_code()
+        org.join_code_created_at = datetime.utcnow()
+        db.commit()
+        db.refresh(org)
+        
+        logger.info(f"Join code refreshed for org {org_id} by user {current_user.id}")
+        
+        return {
+            "status": "success",
+            "message": "Join code refreshed successfully",
+            "join_code": org.join_code,
+            "join_url": f"squadra://join/{org.join_code}",
+            "created_at": org.join_code_created_at.isoformat()
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error refreshing join code: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+# Public endpoint - no auth required
+@router.get("/join/{join_code}", response_model=dict)
+async def get_organization_by_join_code(
+        join_code: str,
+        db: Session = Depends(get_db)
+):
+    """Get organization info by join code (public - no auth required)"""
+    try:
+        # Find organization by join code
+        org = db.query(Organization).filter(
+            Organization.join_code == join_code,
+            Organization.is_deleted == False,
+            Organization.is_active == True
+        ).first()
+        
+        if not org:
+            return {"status": "error", "message": "Invalid or expired join code"}
+        
+        # Get member count
+        members_count = OrganizationService.get_members_count(db, org.id)
+        
+        return {
+            "status": "success",
+            "organization": {
+                "id": str(org.id),
+                "name": org.name,
+                "description": org.description,
+                "logo": org.logo,
+                "members_count": members_count
+            }
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error getting org by join code: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=resp_msgs.STATUS_500_MSG
+        )
+
+
+@router.post("/join/{join_code}", response_model=dict)
+async def join_organization_by_code(
+        request: Request,
+        join_code: str,
+        db: Session = Depends(get_db)
+):
+    """Join organization using join code (authenticated users only)"""
+    try:
+        # Auth check
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return {"status": "error", "message": "Authentication required", "requires_auth": True}
+        
+        token = auth_header.replace("Bearer ", "")
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required", "requires_auth": True}
+        
+        # Find organization by join code
+        org = db.query(Organization).filter(
+            Organization.join_code == join_code,
+            Organization.is_deleted == False,
+            Organization.is_active == True
+        ).first()
+        
+        if not org:
+            return {"status": "error", "message": "Invalid or expired join code"}
+        
+        # Check if user is already a member
+        existing_member = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.user_id == current_user.id
+        ).first()
+        
+        if existing_member:
+            if existing_member.is_deleted:
+                # Reactivate deleted membership
+                existing_member.is_deleted = False
+                existing_member.is_active = True
+                existing_member.role = OrganizationRole.ADMIN  # Default role for joined members
+                db.commit()
+                db.refresh(existing_member)
+                return {
+                    "status": "success",
+                    "message": f"Welcome back to {org.name}!",
+                    "organization_id": str(org.id),
+                    "is_new_member": False
+                }
+            else:
+                return {
+                    "status": "already_member",
+                    "message": f"You are already a member of {org.name}",
+                    "organization_id": str(org.id)
+                }
+        
+        # Create new membership
+        new_member = OrganizationMember(
+            organization_id=org.id,
+            user_id=current_user.id,
+            role=OrganizationRole.ADMIN,  # Default role for joined members
+            is_active=True,
+            is_deleted=False
+        )
+        
+        db.add(new_member)
+        db.commit()
+        
+        logger.info(f"User {current_user.id} joined org {org.id} via join code")
+        
+        return {
+            "status": "success",
+            "message": f"Welcome to {org.name}!",
+            "organization_id": str(org.id),
+            "is_new_member": True
+        }
+    
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error joining organization: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=resp_msgs.STATUS_500_MSG
@@ -604,7 +1019,7 @@ async def create_organization_web(
         )
 
 
-@router.post("/organizations/{org_id}/toggle", name="toggle_organization_web")
+@router.post("/{org_id}/toggle", name="toggle_organization_web")
 async def toggle_organization_web(
         request: Request,
         org_id: str,
@@ -629,7 +1044,7 @@ async def toggle_organization_web(
     return RedirectResponse(url=request.url_for('dashboard_page'), status_code=303)
 
 
-@router.post("/organizations/{org_id}/delete", name="delete_organization_web")
+@router.post("/{org_id}/delete", name="delete_organization_web")
 async def delete_organization_web(
         request: Request,
         org_id: str,

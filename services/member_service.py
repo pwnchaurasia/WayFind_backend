@@ -322,15 +322,19 @@ class MemberService:
             member = db.query(OrganizationMember).filter(
                 OrganizationMember.id == member_id,
                 OrganizationMember.organization_id == org_id,
-                OrganizationMember.is_deleted == False
             ).first()
+
 
             if not member:
                 return False, "Member not found"
 
+
             # Only founder can remove co-founders and other founders
             if not MemberService.can_manage_member(remover_role, member.role):
                 return False, "You cannot remove this member"
+
+            if member.is_deleted:
+                return True, "Member is already deleted"
 
             # Soft delete
             member.is_deleted = True

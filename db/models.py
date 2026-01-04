@@ -189,8 +189,13 @@ class Organization(Base):
     name = Column(String(100), nullable=False, unique=True, index=True)
     description = Column(String(500), nullable=True)
     logo = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)  # Add this
+    is_active = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False)
+    
+    # Join code for shareable invite links
+    join_code = Column(String(12), unique=True, nullable=True, index=True)
+    join_code_created_at = Column(DateTime(timezone=True), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
