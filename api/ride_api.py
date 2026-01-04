@@ -27,7 +27,7 @@ router = APIRouter(prefix="/rides", tags=["rides"])
 
 # API Endpoints (for Mobile App)
 
-@router.post("/api/create", status_code=status.HTTP_201_CREATED)
+@router.post("/create", status_code=status.HTTP_201_CREATED)
 async def create_ride_api(
         ride_data: CreateRide,
         current_user: User = Depends(get_current_user),
@@ -96,7 +96,7 @@ async def create_ride_api(
         )
 
 
-@router.get("/api/list")
+@router.get("/list")
 async def list_rides_api(
         organization_id: Optional[UUID] = None,
         status: Optional[str] = None,
@@ -139,22 +139,53 @@ async def list_rides_api(
         )
 
 
-@router.get("/api/{ride_id}")
+@router.get("/{ride_id}")
 async def get_ride_api(
+        request: Request,
         ride_id: UUID,
-        current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get ride details (API - Mobile)"""
+    """Get ride details (API - Mobile) - supports both authenticated and unauthenticated"""
     try:
+        # Get current user from Authorization header
+        from utils.app_helper import verify_user_from_token
+        
+        current_user = None
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "")
+            if token:
+                is_verified, msg, user = verify_user_from_token(token, db)
+                if is_verified and user:
+                    current_user = user
+        
         ride = db.query(Ride).filter(Ride.id == ride_id).first()
         if not ride:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Ride not found"
-            )
+            return {
+                "status": "error",
+                "message": "Ride not found"
+            }
 
-        # Get participants
+        # Get organization info
+        organization = db.query(Organization).filter(Organization.id == ride.organization_id).first()
+        
+        # Get checkpoints
+        checkpoints = db.query(RideCheckpoint).filter(
+            RideCheckpoint.ride_id == ride_id
+        ).order_by(RideCheckpoint.type).all()
+        
+        checkpoints_data = []
+        for cp in checkpoints:
+            checkpoints_data.append({
+                "id": str(cp.id),
+                "type": cp.type.value if hasattr(cp.type, 'value') else str(cp.type),
+                "latitude": cp.latitude,
+                "longitude": cp.longitude,
+                "address": cp.address,
+                "radius_meters": cp.radius_meters
+            })
+
+        # Get participants with user and vehicle info
         participants = db.query(RideParticipant).filter(
             RideParticipant.ride_id == ride_id
         ).all()
@@ -162,31 +193,72 @@ async def get_ride_api(
         participants_data = []
         for p in participants:
             p_dict = RideParticipantResponse.model_validate(p).model_dump(mode='json')
+            
             # Add user info
             user = db.query(User).filter(User.id == p.user_id).first()
             if user:
-                p_dict['user_name'] = user.name
-                p_dict['user_phone'] = user.phone_number
+                p_dict['user'] = {
+                    "id": str(user.id),
+                    "name": user.name,
+                    "phone_number": user.phone_number,
+                    "profile_picture": user.profile_picture_url
+                }
+            
+            # Add vehicle info
+            if p.vehicle_info_id:
+                vehicle = db.query(UserRideInformation).filter(
+                    UserRideInformation.id == p.vehicle_info_id
+                ).first()
+                if vehicle:
+                    p_dict['vehicle'] = {
+                        "id": str(vehicle.id),
+                        "make": vehicle.make,
+                        "model": vehicle.model,
+                        "year": vehicle.year,
+                        "license_plate": vehicle.license_plate
+                    }
+            
             participants_data.append(p_dict)
 
+        # Check if current user is admin of this org
+        is_admin = False
+        if current_user:
+            membership = db.query(OrganizationMember).filter(
+                OrganizationMember.organization_id == ride.organization_id,
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+                OrganizationMember.is_active == True,
+                OrganizationMember.is_deleted == False
+            ).first()
+            is_admin = membership is not None or current_user.role == UserRole.SUPER_ADMIN
+        
+        # Check if current user is a participant
+        is_participant = any(str(p.user_id) == str(current_user.id) for p in participants) if current_user else False
+
         ride_dict = RideResponse.model_validate(ride).model_dump(mode='json')
+        ride_dict['organization'] = {
+            "id": str(organization.id) if organization else None,
+            "name": organization.name if organization else "Unknown",
+            "logo": organization.logo if organization else None
+        }
+        ride_dict['checkpoints'] = checkpoints_data
         ride_dict['participants'] = participants_data
         ride_dict['participants_count'] = len(participants)
         ride_dict['spots_left'] = ride.max_riders - len(participants)
+        ride_dict['is_admin'] = is_admin
+        ride_dict['is_participant'] = is_participant
 
         return {
             "status": "success",
             "ride": ride_dict
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception(f"Error fetching ride: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch ride"
-        )
+        return {
+            "status": "error",
+            "message": "Failed to fetch ride"
+        }
 
 
 @router.get("/{ride_id}/join", name='join_ride')

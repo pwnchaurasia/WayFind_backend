@@ -184,18 +184,38 @@ async def get_all_organizations(
 async def get_organization(
         request: Request,
         org_id: UUID,
-        current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get organization by ID"""
+    """Get organization by ID - supports both API and web requests"""
     try:
+        # Check auth type
+        auth_header = request.headers.get("authorization", "")
+        is_api_request = auth_header.startswith("Bearer ")
+        
+        current_user = None
+        if is_api_request:
+            # Mobile/API request - get token from Authorization header
+            token = auth_header.replace("Bearer ", "")
+            if token:
+                is_verified, msg, user = verify_user_from_token(token, db)
+                if is_verified and user:
+                    current_user = user
+        else:
+            # Web request - get token from cookie
+            access_token = request.cookies.get("access_token")
+            if access_token:
+                is_verified, msg, user = verify_user_from_token(access_token, db)
+                if is_verified and user:
+                    current_user = user
+        
+        # Get organization
         organization = OrganizationService.get_organization_by_id(db, org_id)
 
         if not organization:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
-            )
+            return {
+                "status": "error",
+                "message": "Organization not found"
+            }
 
         members_count = OrganizationService.get_members_count(db, org_id)
         org_response = OrganizationResponse.model_validate(organization)
@@ -207,14 +227,12 @@ async def get_organization(
             "organization": org_dict
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.exception(f"Error getting organization: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=resp_msgs.STATUS_500_MSG
-        )
+        return {
+            "status": "error",
+            "message": "Failed to fetch organization"
+        }
 
 
 @router.put("/{org_id}", response_model=dict)
@@ -863,29 +881,138 @@ async def join_organization_by_code(
 async def organization_all_people_page(
         request: Request,
         org_id: UUID,
-        current_user: User = Depends(get_current_user_web),
         db: Session = Depends(get_db)
 ):
     """
-    Show ALL people page (HTML)
+    Get ALL people page - supports both API (JSON) and web (HTML)
     Access: Only org admins
     """
-    if not current_user:
-        return RedirectResponse(url=request.url_for('login_page'))
-
-    # PermissionDependency.require_org_admin(org_id)
+    # Check if this is an API request
+    auth_header = request.headers.get("authorization", "")
+    is_api_request = auth_header.startswith("Bearer ")
+    
+    # Get current user based on request type
+    if is_api_request:
+        from utils.app_helper import verify_user_from_token
+        token = auth_header.replace("Bearer ", "")
+        if not token:
+            return {"status": "error", "message": "Authentication required"}
+        is_verified, msg, current_user = verify_user_from_token(token, db)
+        if not is_verified or not current_user:
+            return {"status": "error", "message": msg or "Authentication required"}
+    else:
+        access_token = request.cookies.get("access_token")
+        if not access_token:
+            return RedirectResponse(url=request.url_for('login_page'))
+        from utils.app_helper import verify_user_from_token
+        is_verified, msg, current_user = verify_user_from_token(access_token, db)
+        if not is_verified or not current_user:
+            return RedirectResponse(url=request.url_for('login_page'))
 
     # Get organization
     organization = db.query(Organization).filter(Organization.id == org_id).first()
+    if not organization:
+        if is_api_request:
+            return {"status": "error", "message": "Organization not found"}
+        return RedirectResponse(url=request.url_for('dashboard_page'))
 
     # Get all people
     result = OrganizationService.get_all_organization_people(db, org_id)
 
-
     user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
 
+    # Enhance data with attendance stats and vehicles for API requests
+    if is_api_request:
+        all_user_ids = [p["id"] for p in result["org_members"]] + [p["id"] for p in result["ride_participants"]]
+        
+        # Get attendance stats for all people
+        attendance_lookup = {}
+        for user_id in all_user_ids:
+            try:
+                # Count rides registered for (in this org)
+                total_registered = db.query(func.count(RideParticipant.id)).join(
+                    Ride, RideParticipant.ride_id == Ride.id
+                ).filter(
+                    Ride.organization_id == org_id,
+                    RideParticipant.user_id == user_id
+                ).scalar() or 0
+                
+                # Count completed rides they were part of
+                total_completed = db.query(func.count(RideParticipant.id)).join(
+                    Ride, RideParticipant.ride_id == Ride.id
+                ).filter(
+                    Ride.organization_id == org_id,
+                    RideParticipant.user_id == user_id,
+                    Ride.status == RideStatus.COMPLETED
+                ).scalar() or 0
+                
+                # Count rides they actually attended (marked present)
+                total_attended = db.query(func.count(distinct(AttendanceRecord.ride_id))).filter(
+                    AttendanceRecord.user_id == user_id,
+                    AttendanceRecord.status == 'present'
+                ).join(
+                    Ride, AttendanceRecord.ride_id == Ride.id
+                ).filter(
+                    Ride.organization_id == org_id
+                ).scalar() or 0
+                
+                # Attendance rate = attended / registered (how many rides they joined did they show up for)
+                attendance_rate = round((total_attended / total_registered) * 100, 1) if total_registered > 0 else 0
+                
+                attendance_lookup[user_id] = {
+                    "total_rides": total_registered,
+                    "completed_rides": total_completed,
+                    "attended": total_attended,
+                    "attendance_rate": attendance_rate
+                }
+            except:
+                attendance_lookup[user_id] = {"total_rides": 0, "completed_rides": 0, "attended": 0, "attendance_rate": 0}
+        
+        # Get vehicles for all people (max 5 per person)
+        vehicles_lookup = {}
+        for user_id in all_user_ids:
+            try:
+                vehicles = db.query(UserRideInformation).filter(
+                    UserRideInformation.user_id == user_id
+                ).limit(5).all()
+                
+                vehicles_lookup[user_id] = [
+                    {
+                        "id": str(v.id),
+                        "make": v.make,
+                        "model": v.model,
+                        "year": v.year,
+                        "license_plate": v.license_plate,
+                        "is_primary": v.is_primary
+                    } for v in vehicles
+                ]
+            except:
+                vehicles_lookup[user_id] = []
+        
+        # Add attendance and vehicles to each person
+        for person in result["org_members"]:
+            person["attendance"] = attendance_lookup.get(person["id"], {"total_rides": 0, "attended": 0, "attendance_rate": 0})
+            person["vehicles"] = vehicles_lookup.get(person["id"], [])
+        
+        for person in result["ride_participants"]:
+            person["attendance"] = attendance_lookup.get(person["id"], {"total_rides": 0, "attended": 0, "attendance_rate": 0})
+            person["vehicles"] = vehicles_lookup.get(person["id"], [])
+
+        return {
+            "status": "success",
+            "organization": {
+                "id": str(organization.id),
+                "name": organization.name
+            },
+            "org_members": result["org_members"],
+            "ride_participants": result["ride_participants"],
+            "total_count": result["total_count"],
+            "user_role": user_role.value if user_role else None
+        }
+
+    # Return HTML for web
     return jinja_templates.TemplateResponse(
-        "organization/organization_all_people.html",  # New template
+        "organization/organization_all_people.html",
         {
             "request": request,
             "user": current_user,
