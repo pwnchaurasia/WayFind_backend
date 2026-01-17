@@ -368,7 +368,7 @@ async def get_ride_api(
         }
 
 
-@router.get("/{ride_id}/join", name='join_ride')
+@router.post("/{ride_id}/join", name='join_ride')
 async def join_ride_api(
         ride_id: UUID,
         vehicle_info_id: Optional[UUID] = None,
