@@ -355,7 +355,25 @@ async def get_ride_api(
             participants_data.append(p_dict)
         
         # Check if current user is a participant
-        is_participant = any(str(p.user_id) == str(current_user.id) for p in participants) if current_user else False
+        is_participant = False
+        my_vehicle = None
+        
+        if current_user:
+            my_record = next((p for p in participants if str(p.user_id) == str(current_user.id)), None)
+            if my_record:
+                is_participant = True
+                if my_record.vehicle_info_id:
+                    vehicle = db.query(UserRideInformation).filter(
+                        UserRideInformation.id == my_record.vehicle_info_id
+                    ).first()
+                    if vehicle:
+                        my_vehicle = {
+                            "id": str(vehicle.id),
+                            "make": vehicle.make,
+                            "model": vehicle.model,
+                            "year": vehicle.year,
+                            "license_plate": vehicle.license_plate
+                        }
 
         ride_dict = RideResponse.model_validate(ride).model_dump(mode='json')
         ride_dict['organization'] = {
@@ -369,6 +387,7 @@ async def get_ride_api(
         ride_dict['spots_left'] = ride.max_riders - len(participants)
         ride_dict['is_admin'] = is_admin
         ride_dict['is_participant'] = is_participant
+        ride_dict['my_vehicle'] = my_vehicle
 
         return {
             "status": "success",
@@ -486,9 +505,76 @@ async def join_ride_api(
         )
 
 
+@router.put("/{ride_id}/my-vehicle")
+async def update_my_vehicle_api(
+        ride_id: UUID,
+        vehicle_info_id: UUID = Body(..., embed=True),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Update participant's vehicle for a ride (Mobile API - Self only)"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Check if ride is still active/planned (can't change vehicle on completed ride)
+        if ride.status == RideStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail="Cannot change vehicle for a completed ride")
+
+        # Get current user's participation
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.ride_id == ride_id,
+            RideParticipant.user_id == current_user.id,
+            RideParticipant.is_deleted == False
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="You are not a participant of this ride")
+
+        if participant.role == ParticipantRole.BANNED:
+            raise HTTPException(status_code=403, detail="You are banned from this ride")
+
+        # Verify vehicle belongs to user
+        vehicle = db.query(UserRideInformation).filter(
+            UserRideInformation.id == vehicle_info_id,
+            UserRideInformation.user_id == current_user.id
+        ).first()
+
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found or doesn't belong to you")
+
+        # Update vehicle
+        participant.vehicle_info_id = vehicle_info_id
+        db.commit()
+        db.refresh(participant)
+
+        logger.info(f"User {current_user.id} updated vehicle for ride {ride_id}")
+
+        return {
+            "status": "success",
+            "message": "Vehicle updated successfully",
+            "vehicle": {
+                "id": str(vehicle.id),
+                "make": vehicle.make,
+                "model": vehicle.model,
+                "year": vehicle.year,
+                "license_plate": vehicle.license_plate
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error updating vehicle: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update vehicle")
+
+
 # ============================================
 # PARTICIPANT MANAGEMENT API ENDPOINTS (Mobile)
 # ============================================
+
 
 @router.post("/{ride_id}/participants/{participant_id}/mark-payment")
 async def mark_payment_api(
