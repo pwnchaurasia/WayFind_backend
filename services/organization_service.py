@@ -358,8 +358,7 @@ class OrganizationService:
                 OrganizationMember,
                 User.id == OrganizationMember.user_id
             ).filter(
-                OrganizationMember.organization_id == org_id,
-                OrganizationMember.is_deleted == False
+                OrganizationMember.organization_id == org_id
             )
 
             if is_active is not None:
@@ -388,8 +387,7 @@ class OrganizationService:
                 # Exclude users who are already org members
                 ~User.id.in_(
                     db.query(OrganizationMember.user_id).filter(
-                        OrganizationMember.organization_id == org_id,
-                        OrganizationMember.is_deleted == False
+                        OrganizationMember.organization_id == org_id
                     )
                 )
             ).group_by(
