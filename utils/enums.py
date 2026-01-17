@@ -34,3 +34,4 @@ class ParticipantRole(str, Enum):
     LEAD = "lead"
     MARSHAL = "marshal"
     SWEEP = "sweep"
+    BANNED = "banned"

@@ -324,6 +324,9 @@ class RideParticipant(Base):
     has_paid = Column(Boolean, default=False, nullable=False)
     paid_amount = Column(Float, default=0.0, nullable=False)
     payment_date = Column(DateTime(timezone=True), nullable=True)
+    
+    # Soft delete for removed participants
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

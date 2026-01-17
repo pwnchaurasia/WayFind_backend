@@ -292,24 +292,48 @@ async def get_ride_api(
                 "radius_meters": cp.radius_meters
             })
 
-        # Get participants with user and vehicle info
+        # Check if current user is admin FIRST (need this for participant data)
+        is_admin = False
+        if current_user:
+            membership = db.query(OrganizationMember).filter(
+                OrganizationMember.organization_id == ride.organization_id,
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+                OrganizationMember.is_active == True,
+                OrganizationMember.is_deleted == False
+            ).first()
+            is_admin = membership is not None or current_user.role == UserRole.SUPER_ADMIN
+
+        # Get participants with user and vehicle info (exclude deleted)
         participants = db.query(RideParticipant).filter(
-            RideParticipant.ride_id == ride_id
+            RideParticipant.ride_id == ride_id,
+            RideParticipant.is_deleted == False
         ).all()
+
+        # Get attendance records for this ride (meetup checkpoint)
+        attendance_records = db.query(AttendanceRecord).filter(
+            AttendanceRecord.ride_id == ride_id,
+            AttendanceRecord.checkpoint_type == 'meetup'
+        ).all()
+        attendance_lookup = {str(a.user_id): a.status for a in attendance_records}
 
         participants_data = []
         for p in participants:
             p_dict = RideParticipantResponse.model_validate(p).model_dump(mode='json')
             
-            # Add user info
+            # Add user info - more details for admins
             user = db.query(User).filter(User.id == p.user_id).first()
             if user:
-                p_dict['user'] = {
+                user_info = {
                     "id": str(user.id),
                     "name": user.name,
-                    "phone_number": user.phone_number,
                     "profile_picture": user.profile_picture_url
                 }
+                # Admins get full contact info
+                if is_admin:
+                    user_info["phone_number"] = user.phone_number
+                    user_info["email"] = user.email
+                p_dict['user'] = user_info
             
             # Add vehicle info
             if p.vehicle_info_id:
@@ -325,19 +349,10 @@ async def get_ride_api(
                         "license_plate": vehicle.license_plate
                     }
             
+            # Add attendance status
+            p_dict['attendance_status'] = attendance_lookup.get(str(p.user_id))
+            
             participants_data.append(p_dict)
-
-        # Check if current user is admin of this org
-        is_admin = False
-        if current_user:
-            membership = db.query(OrganizationMember).filter(
-                OrganizationMember.organization_id == ride.organization_id,
-                OrganizationMember.user_id == current_user.id,
-                OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
-                OrganizationMember.is_active == True,
-                OrganizationMember.is_deleted == False
-            ).first()
-            is_admin = membership is not None or current_user.role == UserRole.SUPER_ADMIN
         
         # Check if current user is a participant
         is_participant = any(str(p.user_id) == str(current_user.id) for p in participants) if current_user else False
@@ -384,21 +399,51 @@ async def join_ride_api(
                 detail="Ride not found"
             )
 
-        # Check if already joined
+        # Check if user has an existing record (including deleted/banned)
         existing = db.query(RideParticipant).filter(
             RideParticipant.ride_id == ride_id,
             RideParticipant.user_id == current_user.id
         ).first()
 
         if existing:
+            # Check if banned
+            if existing.role == ParticipantRole.BANNED:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are banned from this ride. Please contact the admin."
+                )
+            
+            # Check if previously deleted (removed) - allow rejoin
+            if existing.is_deleted:
+                # Reactivate the participant
+                existing.is_deleted = False
+                existing.role = ParticipantRole.RIDER
+                existing.vehicle_info_id = vehicle_info_id
+                existing.has_paid = False if ride.requires_payment else True
+                existing.paid_amount = 0.0
+                db.commit()
+                db.refresh(existing)
+                
+                logger.info(f"User {current_user.id} rejoined ride {ride_id}")
+                
+                return {
+                    "status": "success",
+                    "message": "Successfully rejoined ride",
+                    "participant": RideParticipantResponse.model_validate(existing).model_dump(mode='json'),
+                    "payment_required": ride.requires_payment,
+                    "amount": ride.amount
+                }
+            
+            # Already an active participant
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You have already joined this ride"
             )
 
-        # Check capacity
+        # Check capacity (exclude deleted participants)
         current_count = db.query(func.count(RideParticipant.id)).filter(
-            RideParticipant.ride_id == ride_id
+            RideParticipant.ride_id == ride_id,
+            RideParticipant.is_deleted == False
         ).scalar() or 0
 
         if current_count >= ride.max_riders:
@@ -412,7 +457,7 @@ async def join_ride_api(
             ride_id=ride_id,
             user_id=current_user.id,
             vehicle_info_id=vehicle_info_id,
-            role="rider",
+            role=ParticipantRole.RIDER,
             has_paid=False if ride.requires_payment else True,
             paid_amount=0.0
         )
@@ -439,6 +484,268 @@ async def join_ride_api(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to join ride"
         )
+
+
+# ============================================
+# PARTICIPANT MANAGEMENT API ENDPOINTS (Mobile)
+# ============================================
+
+@router.post("/{ride_id}/participants/{participant_id}/mark-payment")
+async def mark_payment_api(
+        ride_id: UUID,
+        participant_id: UUID,
+        amount: float = Body(..., embed=True),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Mark payment for participant (Mobile API - Admin only)"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Verify admin permission
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+
+        if not membership and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Only admins can mark payments")
+
+        # Get participant
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.id == participant_id,
+            RideParticipant.ride_id == ride_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        # Toggle payment status
+        participant.has_paid = not participant.has_paid
+        if participant.has_paid:
+            participant.paid_amount = amount
+            participant.payment_date = datetime.now(timezone.utc)
+        else:
+            participant.paid_amount = 0
+            participant.payment_date = None
+
+        db.commit()
+
+        logger.info(f"Payment {'marked' if participant.has_paid else 'unmarked'} for participant {participant.id}")
+
+        return {
+            "status": "success",
+            "message": f"Payment {'confirmed' if participant.has_paid else 'unmarked'}",
+            "has_paid": participant.has_paid,
+            "paid_amount": participant.paid_amount
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error marking payment: {e}")
+        raise HTTPException(status_code=500, detail="Failed to mark payment")
+
+
+@router.post("/{ride_id}/participants/{participant_id}/mark-attendance")
+async def mark_attendance_api(
+        ride_id: UUID,
+        participant_id: UUID,
+        status: str = Body(..., embed=True),  # 'present' or 'absent'
+        checkpoint_type: str = Body("meetup", embed=True),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Mark attendance for participant (Mobile API - Admin only)"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Verify admin permission
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+
+        if not membership and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Only admins can mark attendance")
+
+        # Get participant
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.id == participant_id,
+            RideParticipant.ride_id == ride_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        # Check/create attendance record
+        existing = db.query(AttendanceRecord).filter(
+            AttendanceRecord.ride_id == ride_id,
+            AttendanceRecord.user_id == participant.user_id,
+            AttendanceRecord.checkpoint_type == checkpoint_type
+        ).first()
+
+        if existing:
+            existing.status = status
+            existing.marked_by = current_user.id
+            existing.marked_at = datetime.now(timezone.utc)
+        else:
+            attendance = AttendanceRecord(
+                ride_id=ride_id,
+                user_id=participant.user_id,
+                checkpoint_type=checkpoint_type,
+                status=status,
+                marked_by=current_user.id,
+                marked_at=datetime.now(timezone.utc)
+            )
+            db.add(attendance)
+
+        db.commit()
+
+        logger.info(f"Attendance marked: {status} for user {participant.user_id}")
+
+        return {
+            "status": "success",
+            "message": f"Marked as {status}",
+            "attendance_status": status
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error marking attendance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to mark attendance")
+
+
+@router.delete("/{ride_id}/participants/{participant_id}")
+async def remove_participant_api(
+        ride_id: UUID,
+        participant_id: UUID,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Remove participant from ride (Mobile API - Admin only)"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Verify admin permission
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+
+        if not membership and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Only admins can remove participants")
+
+        # Get participant
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.id == participant_id,
+            RideParticipant.ride_id == ride_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        # Store user_id before deletion for logging
+        user_id = participant.user_id
+
+        # Soft delete - mark as deleted instead of removing
+        participant.is_deleted = True
+        db.commit()
+
+        logger.info(f"Participant {user_id} soft-deleted from ride {ride_id}")
+
+        return {
+            "status": "success",
+            "message": "Participant removed from ride"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error removing participant: {e}")
+        raise HTTPException(status_code=500, detail="Failed to remove participant")
+
+
+@router.post("/{ride_id}/participants/{participant_id}/toggle-ban")
+async def toggle_participant_ban_api(
+        ride_id: UUID,
+        participant_id: UUID,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Toggle ban status for participant (Mobile API - Admin only)"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Verify admin permission
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+
+        if not membership and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=403, detail="Only admins can ban/unban participants")
+
+        # Get participant
+        participant = db.query(RideParticipant).filter(
+            RideParticipant.id == participant_id,
+            RideParticipant.ride_id == ride_id
+        ).first()
+
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found")
+
+        # Toggle ban status (using is_active field, or we could add a new field)
+        # For now, we'll use a soft approach - change role to 'banned'
+        from utils.enums import ParticipantRole
+        
+        if participant.role == ParticipantRole.BANNED:
+            participant.role = ParticipantRole.RIDER
+            is_banned = False
+        else:
+            participant.role = ParticipantRole.BANNED
+            is_banned = True
+
+        db.commit()
+
+        logger.info(f"Participant {participant.user_id} {'banned' if is_banned else 'unbanned'} from ride {ride_id}")
+
+        return {
+            "status": "success",
+            "message": f"Participant {'banned' if is_banned else 'unbanned'}",
+            "is_banned": is_banned
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error toggling ban: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update ban status")
 
 
 @router.post("{ride_id}/mark-payment", name="mark_payment_web")
