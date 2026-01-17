@@ -1509,7 +1509,6 @@ async def organization_rides_page(
         return RedirectResponse(url=request.url_for('dashboard_page'))
 
     # Get user role
-    from services.member_service import MemberService
     user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
 
     # Get all rides for this organization

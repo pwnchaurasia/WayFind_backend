@@ -139,6 +139,81 @@ async def list_rides_api(
         )
 
 
+@router.put("/{ride_id}")
+async def update_ride_api(
+        ride_id: UUID,
+        ride_data: UpdateRide,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Update ride (API - Mobile) - only for non-completed rides"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ride not found"
+            )
+
+        # Check if ride is completed - completed rides cannot be edited
+        if ride.status == RideStatus.COMPLETED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Completed rides cannot be edited"
+            )
+
+        # Verify user is admin of organization
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_(
+                [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+
+        if not membership and current_user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only organization admins can update rides"
+            )
+
+        # Update only provided fields
+        if ride_data.name is not None:
+            ride.name = ride_data.name
+        if ride_data.max_riders is not None:
+            ride.max_riders = ride_data.max_riders
+        if ride_data.requires_payment is not None:
+            ride.requires_payment = ride_data.requires_payment
+        if ride_data.amount is not None:
+            ride.amount = ride_data.amount
+        if ride_data.status is not None:
+            # Don't allow changing from completed to other status
+            if ride.status != RideStatus.COMPLETED:
+                ride.status = RideStatus(ride_data.status)
+
+        db.commit()
+        db.refresh(ride)
+
+        logger.info(f"Ride updated: {ride.name} by {current_user.id}")
+
+        return {
+            "status": "success",
+            "message": "Ride updated successfully",
+            "ride": RideResponse.model_validate(ride).model_dump(mode='json')
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error updating ride: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update ride"
+        )
+
+
 @router.get("/{ride_id}")
 async def get_ride_api(
         request: Request,
