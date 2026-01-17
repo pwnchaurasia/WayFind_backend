@@ -30,6 +30,8 @@ class CreateRide(BaseModel):
     max_riders: Optional[int] = Field(30, ge=1, le=100)
     requires_payment: bool = False
     amount: float = Field(0.0, ge=0.0)
+    scheduled_date: Optional[datetime] = None
+    ride_type: str = "One Day"
     checkpoints: List[CreateCheckpoint]
 
 

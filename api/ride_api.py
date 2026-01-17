@@ -58,6 +58,8 @@ async def create_ride_api(
             max_riders=ride_data.max_riders,
             requires_payment=ride_data.requires_payment,
             amount=ride_data.amount,
+            scheduled_date=ride_data.scheduled_date,
+            ride_type=ride_data.ride_type,
             status=RideStatus.PLANNED
         )
         db.add(ride)
@@ -222,7 +224,15 @@ async def update_ride_api(
         if ride_data.status is not None:
             # Don't allow changing from completed to other status
             if ride.status != RideStatus.COMPLETED:
-                ride.status = RideStatus(ride_data.status)
+                new_status = RideStatus(ride_data.status)
+                
+                # Check for status transitions to set timestamps
+                if new_status == RideStatus.ACTIVE and ride.status != RideStatus.ACTIVE:
+                    ride.started_at = datetime.now(timezone.utc)
+                elif new_status == RideStatus.COMPLETED and ride.status != RideStatus.COMPLETED:
+                    ride.ended_at = datetime.now(timezone.utc)
+                    
+                ride.status = new_status
 
         db.commit()
         db.refresh(ride)
