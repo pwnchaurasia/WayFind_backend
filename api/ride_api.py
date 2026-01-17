@@ -100,20 +100,51 @@ async def create_ride_api(
 async def list_rides_api(
         organization_id: Optional[UUID] = None,
         status: Optional[str] = None,
+        include_completed: bool = False,
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """List rides (API - Mobile)"""
+    """
+    List rides (API - Mobile)
+    - By default returns only PLANNED and ACTIVE rides
+    - Use include_completed=true to include COMPLETED rides
+    - Use status param to filter by specific status (planned/active/completed)
+    - Sorted by scheduled_date: upcoming rides first, then by date proximity
+    """
     try:
         query = db.query(Ride)
 
         if organization_id:
             query = query.filter(Ride.organization_id == organization_id)
 
+        # Status filtering
         if status:
+            # If specific status requested, use that
             query = query.filter(Ride.status == status)
+        elif not include_completed:
+            # Default: exclude completed rides
+            query = query.filter(Ride.status.in_([RideStatus.PLANNED, RideStatus.ACTIVE]))
 
-        rides = query.order_by(Ride.created_at.desc()).all()
+        # Sort by scheduled_date
+        # - Active rides first
+        # - Then upcoming planned rides (nearest date first)
+        # - Then completed rides (most recent first) if included
+        from sqlalchemy import case, desc, asc, nullslast
+        
+        # Custom sort: ACTIVE first, then by scheduled_date ascending (upcoming first)
+        # For completed rides, we want most recent first (descending)
+        rides = query.order_by(
+            # Active rides come first
+            case(
+                (Ride.status == RideStatus.ACTIVE, 0),
+                (Ride.status == RideStatus.PLANNED, 1),
+                (Ride.status == RideStatus.COMPLETED, 2),
+                else_=3
+            ),
+            # For non-completed: ascending (nearest upcoming first)
+            # For completed: we still want older at bottom
+            nullslast(Ride.scheduled_date.asc())
+        ).all()
 
         rides_data = []
         for ride in rides:
@@ -128,7 +159,8 @@ async def list_rides_api(
 
         return {
             "status": "success",
-            "rides": rides_data
+            "rides": rides_data,
+            "total": len(rides_data)
         }
 
     except Exception as e:

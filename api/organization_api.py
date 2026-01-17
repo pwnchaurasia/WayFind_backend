@@ -1463,11 +1463,16 @@ async def org_ride_detail_page(
 async def organization_rides_page(
         request: Request,
         org_id: UUID,
+        include_completed: bool = False,
         db: Session = Depends(get_db)
 ):
     """
     Organization rides page - supports both HTML (web) and JSON (mobile)
     Uses Authorization header to detect API requests
+    
+    Args:
+        include_completed: If False (default), only returns PLANNED and ACTIVE rides.
+                          If True, includes COMPLETED rides as well.
     """
     # Check if this is an API request (has Authorization header) or web request
     auth_header = request.headers.get("authorization", "")
@@ -1511,8 +1516,31 @@ async def organization_rides_page(
     # Get user role
     user_role = MemberService.get_user_role_in_org(db, org_id, current_user.id)
 
-    # Get all rides for this organization
-    rides = db.query(Ride).filter(Ride.organization_id == org_id).order_by(Ride.created_at.desc()).all()
+    # Build query with smart sorting:
+    # - ACTIVE rides first (priority 0)
+    # - PLANNED rides next, sorted by scheduled_date ASC (nearest upcoming first)
+    # - COMPLETED rides last, sorted by scheduled_date DESC (most recent first)
+    from sqlalchemy import case, nullslast
+    
+    rides_query = db.query(Ride).filter(Ride.organization_id == org_id)
+    
+    # For mobile API: filter out completed rides unless requested
+    if is_api_request and not include_completed:
+        rides_query = rides_query.filter(Ride.status.in_([RideStatus.PLANNED, RideStatus.ACTIVE]))
+    
+    # Smart sorting
+    rides = rides_query.order_by(
+        # ACTIVE first, then PLANNED, then COMPLETED
+        case(
+            (Ride.status == RideStatus.ACTIVE, 0),
+            (Ride.status == RideStatus.PLANNED, 1),
+            (Ride.status == RideStatus.COMPLETED, 2),
+            else_=3
+        ),
+        # For PLANNED: sort by scheduled_date ASC (nearest upcoming first)
+        # For COMPLETED: they'll still be sorted by scheduled_date ASC but grouped at the end
+        nullslast(Ride.scheduled_date.asc())
+    ).all()
 
     # Categorize rides
     upcoming_rides = []
@@ -1541,7 +1569,7 @@ async def organization_rides_page(
             "amount": ride.amount,
             "paid_count": paid_count,
             "ride_type": ride.ride_type.value if ride.ride_type else None,
-            "scheduled_date": ride.scheduled_date.strftime("%Y-%m-%d") if ride.scheduled_date else None,
+            "scheduled_date": ride.scheduled_date.isoformat() if ride.scheduled_date else None,
             "created_at": ride.created_at.strftime("%Y-%m-%d"),
             "started_at": ride.started_at.strftime("%Y-%m-%d %H:%M") if ride.started_at else None
         }
@@ -1563,6 +1591,7 @@ async def organization_rides_page(
             "upcoming_rides": upcoming_rides,
             "active_rides": active_rides,
             "past_rides": past_rides,
+            "total": len(all_rides),
             "organization": {
                 "id": str(organization.id),
                 "name": organization.name
@@ -1570,7 +1599,7 @@ async def organization_rides_page(
             "user_role": user_role.value if user_role else None
         }
 
-    # Return HTML for web
+    # Return HTML for web (web always shows all rides)
     return jinja_templates.TemplateResponse(
         "organization/organization_rides.html",
         {
