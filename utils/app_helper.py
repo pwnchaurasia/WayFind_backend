@@ -58,7 +58,17 @@ def generate_otp(identifier, otp_type="mobile_verification"):
     """
     try:
         redis_client = RedisHelper()
-        otp = str(random.randint(100000, 999999))
+        
+        # Temp mode for demo (deterministic OTP)
+        if os.getenv("TEMP") == "True" and otp_type == "mobile_verification":
+            # Use first 6 digits of the identifier
+            otp = ''.join(filter(str.isdigit, str(identifier)))[:6]
+            # Ensure it is 6 chars (pad if short, though unlikely for phone)
+            if len(otp) < 6:
+                otp = otp.ljust(6, '0')
+        else:
+            otp = str(random.randint(100000, 999999))
+            
         otp_key = f"otp:{otp_type}:{identifier}"
         redis_client.set_with_ttl(otp_key, otp, os.getenv("OTP_TTL"))  # Store OTP for 3 minutes
         return otp
