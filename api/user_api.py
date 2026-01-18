@@ -209,7 +209,8 @@ async def get_user_vehicles(
     """Get user's vehicles"""
     try:
         vehicles = db.query(UserRideInformation).filter(
-            UserRideInformation.user_id == current_user.id
+            UserRideInformation.user_id == current_user.id,
+            UserRideInformation.is_deleted == False
         ).all()
         
         return JSONResponse(
@@ -237,7 +238,10 @@ async def update_vehicle(
 ):
     """Update vehicle"""
     try:
-        vehicle = db.query(UserRideInformation).filter(UserRideInformation.id == vehicle_id).first()
+        vehicle = db.query(UserRideInformation).filter(
+            UserRideInformation.id == vehicle_id,
+            UserRideInformation.is_deleted == False
+        ).first()
         if not vehicle:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -287,7 +291,10 @@ async def delete_vehicle(
 ):
     """Delete vehicle"""
     try:
-        vehicle = db.query(UserRideInformation).filter(UserRideInformation.id == vehicle_id).first()
+        vehicle = db.query(UserRideInformation).filter(
+            UserRideInformation.id == vehicle_id,
+            UserRideInformation.is_deleted == False
+        ).first()
         if not vehicle:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -300,7 +307,7 @@ async def delete_vehicle(
                 detail="You can only delete your own vehicles"
             )
         
-        db.delete(vehicle)
+        vehicle.is_deleted = True
         db.commit()
         
         logger.info(f"Vehicle deleted: {vehicle_id}")
