@@ -25,29 +25,54 @@
 ---
 
 ## Completed Tasks ✅
+### Rebranding (WayFind → Squadra) 🎨
+- [x] App Name updated in `app.json` (Squadra)
+- [x] Backend Templates (`users.html`, `rides.html`) updated
+- [x] Email notifications updated
+- [x] User-Agent strings updated to `Squadra-App/1.0`
+- [x] Privacy/Terms text updated
 
-### Authentication
+### Deep Linking System 🔗
+- [x] **Universal Links implemented**: `https://squadra.app/join/...`
+- [x] **Custom Scheme**: `squadra://` matches `https` paths
+- [x] **Web Fallback Pages**:
+  - `join_ride.html`: Redirects to app or Play Store
+  - `join_org.html`: Redirects to app or Play Store
+- [x] **Ngrok Support**:
+  - Added `ngrok-skip-browser-warning` header to Axios
+  - Configured Templates to use `squadra://squadra.app/join/...` for robust routing
+
+### Authentication & Permissions
 - [x] Phone Login with OTP flow
-- [x] OTP verification screen
-- [x] Token storage (SecureStore)
-- [x] Auth context for session management
-- [x] Profile update screen with vehicle info
-- [x] Google Sign-In setup (requires dev build)
-
-### Backend APIs
-- [x] User authentication (OTP, Google)
-- [x] User profile CRUD (`/users/me`)
-- [x] Vehicle management (`/users/me/vehicles`)
-- [x] Organization CRUD
-- [x] Ride management
-- [x] Member management with roles
+- [x] **Fixed Redirect Loop**: `VerifyOTP` → `UpdateProfile` → `Dashboard`
+- [x] **Location Permissions**: Added `ACCESS_BACKGROUND_LOCATION` to `app.json`
+- [x] Token storage & Auth Context
 
 ### UI/UX
 - [x] Login page (Phone + Google buttons)
 - [x] Update profile with vehicle fields
 - [x] Organization list view
-- [x] Logo section component
-- [x] App name updated to "Squadra"
+- [x] **Profile Tab Complete**:
+  - Vehicle Management (Add/Edit/Delete) with Limit (3)
+  - Edit Profile Mode vs Setup Mode
+  - Settings Menu
+
+---
+
+## Technical Configuration ⚙️
+
+### Deep Linking Setup
+- **Scheme**: `squadra://`
+- **Host**: `squadra.app` (Placeholder for Universal Links)
+- **Routes**:
+  - `/join/ride/[id]`: Opens Ride Details
+  - `/join/org/[code]`: Opens Org Join Invite
+- **Testing**: Open `https://<NGROK>/join/ride/<ID>` → Click "Open in App".
+
+### Ngrok Demo Setup
+1. Backend: Expose port 8000 via Ngrok.
+2. Frontend `.env`: Set `EXPO_PUBLIC_API_BASE_URL_DEV` to Ngrok URL.
+3. **Important**: Restart Metro (`npx expo start --clear`) after `.env` changes.
 
 ---
 
@@ -57,13 +82,11 @@
 - [x] MapSelector component created with OSM + Google toggle
 - [x] **Default to OpenStreetMap** ✅ Changed from Google
 
-### Profile Tab
-- [x] Profile tab implemented with full functionality ✅
-- [x] Personal profile view (name, email, avatar)
-- [x] Vehicle garage display
-- [x] Settings menu (Notifications, Privacy, Help)
-- [x] Logout functionality
-- [x] Super Admin badge display
+### Phase 1: Essential Launch Features 📱
+- [ ] Live GPS tracking during rides
+- [ ] Background location tracking (service implemented, pending UI)
+- [ ] Push notifications (ride started, checkpoint nearby)
+
 
 ---
 
