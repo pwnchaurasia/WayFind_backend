@@ -53,9 +53,9 @@
 - [x] Update profile with vehicle fields
 - [x] Organization list view
 - [x] **Profile Tab Complete**:
-  - Vehicle Management (Add/Edit/Delete) with Limit (3)
-  - Edit Profile Mode vs Setup Mode
-  - Settings Menu
+- [x] Vehicle Management (Add/Edit/Delete) with Limit (3)
+- Edit Profile Mode vs Setup Mode
+- Settings Menu
 
 ---
 
