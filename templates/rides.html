@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WayFind Rides</title>
-    
+    <title>Squadra Rides</title>
+
     <!-- Theme Colors -->
     <style>
         :root {
@@ -27,30 +28,30 @@
             --success-color: #10b981;
             --info-color: #2196f3;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
             background-color: var(--background-color);
             color: var(--text-primary);
             line-height: 1.6;
         }
-        
+
         /* Navigation */
         .navbar {
             background-color: var(--primary-color);
             padding: 1rem 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             position: sticky;
             top: 0;
             z-index: 1000;
         }
-        
+
         .navbar-brand {
             color: var(--background-color);
             font-weight: bold;
@@ -60,7 +61,7 @@
             align-items: center;
             gap: 1rem;
         }
-        
+
         .nav-link {
             color: var(--text-primary);
             padding: 0.5rem 1rem;
@@ -68,15 +69,15 @@
             border-radius: 6px;
             transition: background-color 0.3s ease;
         }
-        
+
         .nav-link:hover {
             background-color: var(--primary-light);
         }
-        
+
         .nav-link.active {
             background-color: var(--accent-color);
         }
-        
+
         /* Cards */
         .card {
             background-color: var(--surface-color);
@@ -85,12 +86,12 @@
             padding: 1.5rem;
             transition: all 0.3s ease;
         }
-        
+
         .card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
-        
+
         .card-header {
             background-color: var(--primary-color);
             color: var(--background-color);
@@ -102,47 +103,47 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .card-title {
             color: var(--text-primary);
             margin-bottom: 0.5rem;
             font-weight: 600;
         }
-        
+
         .card-stats {
             display: flex;
             gap: 1rem;
             margin: 0.5rem 0;
         }
-        
+
         .stat {
             text-align: center;
             flex: 1;
         }
-        
+
         .stat-value {
             font-size: 1.5rem;
             font-weight: bold;
             color: var(--primary-color);
         }
-        
+
         .stat-label {
             font-size: 0.875rem;
             color: var(--text-secondary);
         }
-        
+
         /* Forms */
         .form-group {
             margin-bottom: 1rem;
         }
-        
+
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .form-control {
             width: 100%;
             padding: 0.75rem;
@@ -153,13 +154,13 @@
             font-size: 1rem;
             transition: all 0.3s ease;
         }
-        
+
         .form-control:focus {
             outline: none;
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 0 3px rgba(0,123,255,0.1);
+            box-shadow: 0 0 0 0 3px rgba(0, 123, 255, 0.1);
         }
-        
+
         .btn {
             padding: 0.75rem 1.5rem;
             border: none;
@@ -170,40 +171,40 @@
             transition: all 0.3s ease;
             text-decoration: none;
         }
-        
+
         .btn-primary {
             background-color: var(--primary-color);
             color: var(--background-color);
         }
-        
+
         .btn-primary:hover {
             background-color: var(--primary-light);
         }
-        
+
         .btn-secondary {
             background-color: var(--secondary-color);
             color: var(--background-color);
         }
-        
+
         .btn-secondary:hover {
             background-color: var(--secondary-light);
         }
-        
+
         .btn-success {
             background-color: var(--success-color);
             color: var(--background-color);
         }
-        
+
         .btn-danger {
             background-color: var(--error-color);
             color: var(--background-color);
         }
-        
+
         .btn-sm {
             padding: 0.5rem 1rem;
             font-size: 0.875rem;
         }
-        
+
         /* Tables */
         .table {
             width: 100%;
@@ -212,9 +213,9 @@
             background-color: var(--surface-color);
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
-        
+
         .table th {
             background-color: var(--primary-color);
             color: var(--background-color);
@@ -223,17 +224,17 @@
             font-weight: 600;
             border-bottom: 2px solid var(--border-color);
         }
-        
+
         .table td {
             padding: 0.75rem;
             border-bottom: 1px solid var(--border-color);
             text-align: left;
         }
-        
+
         .table tr:hover {
             background-color: var(--secondary-light);
         }
-        
+
         /* Status badges */
         .status-badge {
             padding: 0.25rem 0.5rem;
@@ -242,59 +243,59 @@
             font-weight: 600;
             text-transform: uppercase;
         }
-        
+
         .status-active {
             background-color: var(--success-color);
             color: var(--background-color);
         }
-        
+
         .status-pending {
             background-color: var(--warning-color);
             color: var(--text-primary);
         }
-        
+
         .status-inactive {
             background-color: var(--text-disabled);
             color: var(--text-secondary);
         }
-        
+
         /* Responsive */
         @media (max-width: 768px) {
             .card-stats {
                 flex-direction: column;
             }
-            
+
             .navbar {
                 padding: 0.75rem 0;
             }
-            
+
             .table {
                 font-size: 0.875rem;
             }
-            
+
             .form-control {
                 padding: 0.625rem;
             }
         }
-        
+
         @media (max-width: 480px) {
             .card-stats {
                 gap: 0.5rem;
             }
-            
+
             .navbar {
                 padding: 0.5rem 0;
             }
-            
+
             .btn {
                 padding: 0.625rem 1rem;
                 font-size: 0.875rem;
             }
-            
+
             .form-control {
                 padding: 0.5rem;
             }
-            
+
             .badge {
                 padding: 0.2rem 0.375rem;
                 font-size: 0.625rem;
@@ -302,11 +303,12 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <a class="navbar-brand" href="/">WayFind</a>
+            <a class="navbar-brand" href="/">Squadra</a>
             <div style="display: flex; gap: 1rem; margin-left: auto;">
                 <a class="nav-link" href="/templates/dashboard.html">Dashboard</a>
                 <a class="nav-link" href="/templates/organizations.html">Organizations</a>
@@ -319,7 +321,7 @@
     <!-- Main Content -->
     <main class="container">
         <div class="header-section">
-            <h1>WayFind Rides</h1>
+            <h1>Squadra Rides</h1>
             <p>Manage motorcycle rides, checkpoints, and participant tracking</p>
         </div>
 
@@ -357,7 +359,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="col-12">
                 <div class="card">
                     <div class="card-header">
@@ -404,38 +406,42 @@
                     <div class="form-group">
                         <label class="form-label">Ride Name *</label>
                         <input type="text" class="form-control" id="rideName" required>
-                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Max Riders</label>
                         <input type="number" class="form-control" id="rideMaxRiders" min="1" value="30" required>
-                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Checkpoints</label>
                         <div id="rideCheckpoints">
                             <div class="checkpoint-row">
-                                <input type="text" class="form-control checkpoint-name" placeholder="Checkpoint Name" required>
+                                <input type="text" class="form-control checkpoint-name" placeholder="Checkpoint Name"
+                                    required>
                                 <select class="form-control checkpoint-type">
                                     <option value="MEETUP">Meetup</option>
                                     <option value="DESTINATION">Destination</option>
                                     <option value="DISBURSEMENT">Disbursement</option>
                                 </select>
-                                <input type="number" class="form-control checkpoint-lat" placeholder="Latitude" step="any" required>
-                                <input type="number" class="form-control checkpoint-lon" placeholder="Longitude" step="any" required>
-                                <input type="number" class="form-control checkpoint-radius" placeholder="Radius (meters)" min="10" value="50">
+                                <input type="number" class="form-control checkpoint-lat" placeholder="Latitude"
+                                    step="any" required>
+                                <input type="number" class="form-control checkpoint-lon" placeholder="Longitude"
+                                    step="any" required>
+                                <input type="number" class="form-control checkpoint-radius"
+                                    placeholder="Radius (meters)" min="10" value="50">
                             </div>
                         </div>
                         <button type="button" class="btn btn-sm btn-secondary" onclick="addCheckpointRow()">
-                                <i class="fas fa-plus"></i> Add Checkpoint
-                            </button>
-                        </div>
+                            <i class="fas fa-plus"></i> Add Checkpoint
+                        </button>
                     </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary">Create Ride</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('createRideModal')">Cancel</button>
-                    </div>
-                </form>
             </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Create Ride</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createRideModal')">Cancel</button>
+            </div>
+            </form>
         </div>
+    </div>
     </div>
 
     <!-- Edit Ride Modal -->
@@ -455,7 +461,7 @@
                     <div class="form-group">
                         <label class="form-label">Ride Name</label>
                         <input type="text" class="form-control" id="editRideName" required>
-                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Status</label>
                         <select class="form-control" id="editRideStatus">
@@ -467,7 +473,7 @@
                     <div class="form-group">
                         <label class="form-label">Max Riders</label>
                         <input type="number" class="form-control" id="editRideMaxRiders" min="1" required>
-                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">Checkpoints</label>
                         <div id="editRideCheckpoints">
@@ -476,7 +482,8 @@
                     </div>
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary">Update Ride</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeModal('editRideModal')">Cancel</button>
+                        <button type="button" class="btn btn-secondary"
+                            onclick="closeModal('editRideModal')">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -529,7 +536,7 @@
     <script>
         // Configuration
         const API_BASE = 'http://localhost:8000/api';
-        
+
         // Toast notification function
         function showToast(title, message, type = 'success') {
             $('#toastTitle').text(title);
@@ -553,7 +560,7 @@
         }
 
         // Initialize on page load
-        $(document).ready(function() {
+        $(document).ready(function () {
             loadActiveRides();
             loadAllRides();
             initializeModals();
@@ -562,7 +569,7 @@
         // Initialize modals
         function initializeModals() {
             // Close modal when clicking outside
-            $('.modal').on('click', function(e) {
+            $('.modal').on('click', function (e) {
                 if ($(e.target).is('.modal-content')) {
                     return;
                 }
@@ -596,7 +603,7 @@
                     </button>
                 </div>
             `;
-            
+
             $('#rideCheckpoints').append(checkpointRow);
         }
 
@@ -605,27 +612,27 @@
         }
 
         // Submit create ride form
-        $('#createRideForm').on('submit', function(e) {
+        $('#createRideForm').on('submit', function (e) {
             e.preventDefault();
-            
+
             const orgId = $('#rideOrgId').val();
             const rideName = $('#rideName').val();
             const maxRiders = $('#rideMaxRiders').val();
-            
+
             // Get checkpoints
             const checkpoints = [];
-            $('#rideCheckpoints .checkpoint-row').each(function(index, row) {
+            $('#rideCheckpoints .checkpoint-row').each(function (index, row) {
                 const name = $(row).find('.checkpoint-name').val();
                 const type = $(row).find('.checkpoint-type').val();
                 const lat = parseFloat($(row).find('.checkpoint-lat').val());
                 const lon = parseFloat($(row).find('.checkpoint-lon').val());
                 const radius = parseInt($(row).find('.checkpoint-radius').val());
-                
+
                 if (!name || !type || isNaN(lat) || isNaN(lon) || radius < 10) {
                     showToast('Error', 'Please fill all checkpoint fields correctly', 'error');
                     return;
                 }
-                
+
                 checkpoints.push({
                     name: name,
                     type: type,
@@ -634,12 +641,12 @@
                     radius_meters: radius
                 });
             });
-            
+
             if (checkpoints.length === 0) {
                 showToast('Error', 'At least one checkpoint is required', 'error');
                 return;
             }
-            
+
             const formData = {
                 organization_id: orgId,
                 name: rideName,
@@ -652,13 +659,13 @@
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
-                success: function(response) {
+                success: function (response) {
                     closeModal('createRideModal');
                     showToast('Success', 'Ride created successfully!', 'success');
                     loadAllRides();
                     loadActiveRides();
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', xhr.responseText || 'Failed to create ride', 'error');
                 }
             });
@@ -669,15 +676,15 @@
             $.ajax({
                 url: API_BASE + `/rides/${rideId}`,
                 method: 'GET',
-                success: function(ride) {
+                success: function (ride) {
                     $('#editRideForm #editRideOrgId').val(ride.organization_id);
                     $('#editRideName').val(ride.name);
                     $('#editRideStatus').val(ride.status);
                     $('#editRideMaxRiders').val(ride.max_riders);
-                    
+
                     // Load checkpoints
                     $('#editRideCheckpoints').empty();
-                    ride.checkpoints.forEach(function(cp) {
+                    ride.checkpoints.forEach(function (cp) {
                         const checkpointRow = $(`
                             <div class="checkpoint-row">
                                 <input type="text" class="form-control checkpoint-name" value="${cp.name}" placeholder="Checkpoint Name" required>
@@ -696,7 +703,7 @@
                         `);
                         $('#editRideCheckpoints').append(checkpointRow);
                     });
-                    
+
                     // Add "Add Checkpoint" functionality for editing
                     $('#editRideCheckpoints').append(`
                         <button type="button" class="btn btn-sm btn-secondary" onclick="addEditCheckpointRow()">
@@ -704,7 +711,7 @@
                         </button>
                     `);
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to load ride data', 'error');
                 }
             });
@@ -735,23 +742,23 @@
         }
 
         // Submit edit ride form
-        $('#editRideForm').on('submit', function(e) {
+        $('#editRideForm').on('submit', function (e) {
             e.preventDefault();
-            
+
             const orgId = $('#editRideOrgId').val();
             const rideName = $('#editRideName').val();
             const status = $('#editRideStatus').val();
             const maxRiders = $('#editRideMaxRiders').val();
-            
+
             // Get checkpoints
             const checkpoints = [];
-            $('#editRideCheckpoints .checkpoint-row').each(function(index, row) {
+            $('#editRideCheckpoints .checkpoint-row').each(function (index, row) {
                 const name = $(row).find('.checkpoint-name').val();
                 const type = $(row).find('.checkpoint-type').val();
                 const lat = parseFloat($(row).find('.checkpoint-lat').val());
                 const lon = parseFloat($(row).find('.checkpoint-lon').val());
                 const radius = parseInt($(row).find('.checkpoint-radius').val());
-                
+
                 checkpoints.push({
                     name: name,
                     type: type,
@@ -760,7 +767,7 @@
                     radius_meters: radius
                 });
             });
-            
+
             const formData = {
                 organization_id: orgId,
                 name: rideName,
@@ -774,13 +781,13 @@
                 method: 'PUT',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
-                success: function(response) {
+                success: function (response) {
                     closeModal('editRideModal');
                     showToast('Success', 'Ride updated successfully!', 'success');
                     loadAllRides();
                     loadActiveRides();
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', xhr.responseText || 'Failed to update ride', 'error');
                 }
             });
@@ -796,17 +803,17 @@
                 confirmButtonColor: '#ef5350',
                 confirmButtonText: 'Delete',
                 closeOnConfirm: true
-            }).then(function(result) {
+            }).then(function (result) {
                 if (result.isConfirmed) {
                     $.ajax({
                         url: API_BASE + `/rides/${rideId}`,
                         method: 'DELETE',
-                        success: function(response) {
+                        success: function (response) {
                             showToast('Success', 'Ride deleted successfully', 'success');
                             loadAllRides();
                             loadActiveRides();
                         },
-                        error: function(xhr) {
+                        error: function (xhr) {
                             showToast('Error', 'Failed to delete ride', 'error');
                         }
                     });
@@ -819,12 +826,12 @@
             $.ajax({
                 url: API_BASE + `/rides/${rideId}/start`,
                 method: 'POST',
-                success: function(response) {
+                success: function (response) {
                     showToast('Success', 'Ride started successfully!', 'success');
                     loadAllRides();
                     loadActiveRides();
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to start ride', 'error');
                 }
             });
@@ -835,12 +842,12 @@
             $.ajax({
                 url: API_BASE + `/rides/${rideId}/end`,
                 method: 'POST',
-                success: function(response) {
+                success: function (response) {
                     showToast('Success', 'Ride ended successfully!', 'success');
                     loadAllRides();
                     loadActiveRides();
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to end ride', 'error');
                 }
             });
@@ -851,7 +858,7 @@
             $.ajax({
                 url: API_BASE + `/rides/${rideId}`,
                 method: 'GET',
-                success: function(ride) {
+                success: function (ride) {
                     const detailsHtml = `
                         <div class="ride-details">
                             <div class="detail-group">
@@ -882,11 +889,11 @@
                             </div>
                     </div>
                 `;
-                    
+
                     $('#rideDetailsContent').html(detailsHtml);
                     showModal('rideDetailsModal');
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to load ride details', 'error');
                 }
             });
@@ -897,11 +904,11 @@
             $.ajax({
                 url: API_BASE + '/rides?status=ACTIVE',
                 method: 'GET',
-                success: function(response) {
+                success: function (response) {
                     const rides = response.data.rides || [];
                     let html = '';
-                    
-                    rides.forEach(function(ride) {
+
+                    rides.forEach(function (ride) {
                         html += `
                             <tr>
                                 <td>
@@ -920,10 +927,10 @@
                             </tr>
                         `;
                     });
-                    
+
                     $('#active-rides-table tbody').html(html);
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to load active rides', 'error');
                 }
             });
@@ -934,37 +941,37 @@
             $.ajax({
                 url: API_BASE + '/rides',
                 method: 'GET',
-                success: function(response) {
+                success: function (response) {
                     const rides = response.data.rides || [];
                     let html = '';
-                    
-                    rides.forEach(function(ride) {
+
+                    rides.forEach(function (ride) {
                         const statusBadge = ride.status === 'ACTIVE' ? 'status-active' : ride.status === 'COMPLETED' ? 'status-success' : 'status-pending';
                         html += '<tr>' +
                             '<td>' +
-                                '<div class="ride-name">' + ride.name + '</div>' +
+                            '<div class="ride-name">' + ride.name + '</div>' +
                             '</td>' +
                             '<td>' +
-                                '<div class="ride-org">' + (ride.organization?.name || '-') + '</div>' +
+                            '<div class="ride-org">' + (ride.organization?.name || '-') + '</div>' +
                             '</td>' +
                             '<td>' +
-                                '<span class="status-badge status-' + statusBadge + '">' + ride.status + '</span>' +
+                            '<span class="status-badge status-' + statusBadge + '">' + ride.status + '</span>' +
                             '</td>' +
                             '<td>' + new Date(ride.created_at).toLocaleDateString() + '</td>' +
                             '<td>' +
-                                '<button class="btn btn-sm btn-primary" onclick="viewRideDetails(\\'' + ride.id + '\\'')">View</button>' +
-                                '<button class="btn btn-sm btn-secondary" onclick="editRide(\\'' + ride.id + '\\'')">Edit</button>' +
-                                (ride.status === 'PLANNED' ? '<button class="btn btn-sm btn-success" onclick="startRide(\\'' + ride.id + '\\'')">Start</button>' : '') +
-                                (ride.status === 'ACTIVE' ? '<button class="btn btn-sm btn-warning" onclick="endRide(\\'' + ride.id + '\\'')">End</button>' : '') +
-                            '</td>' +
-                        '</tr>';
-                    });
-                    
-                    $('#all-rides-table tbody').html(html);
+                            '<button class="btn btn-sm btn-primary" onclick="viewRideDetails(\\'' + ride.id + '\\'')">View</button>' +
+                    '<button class="btn btn-sm btn-secondary" onclick="editRide(\\'' + ride.id + '\\'')">Edit</button>' +
+                        (ride.status === 'PLANNED' ? '<button class="btn btn-sm btn-success" onclick="startRide(\\'' + ride.id + '\\'')">Start</button>' : '') +
+                            (ride.status === 'ACTIVE' ? '<button class="btn btn-sm btn-warning" onclick="endRide(\\'' + ride.id + '\\'')">End</button>' : '') +
+            '</td>' +
+                '</tr>';
+        });
+
+        $('#all-rides-table tbody').html(html);
                 },
-                error: function(xhr) {
-                    showToast('Error', 'Failed to load all rides', 'error');
-                }
+        error: function(xhr) {
+            showToast('Error', 'Failed to load all rides', 'error');
+        }
             });
         }
 
@@ -973,21 +980,22 @@
             $.ajax({
                 url: API_BASE + '/organizations',
                 method: 'GET',
-                success: function(response) {
+                success: function (response) {
                     const orgs = response.data.organizations || [];
                     let html = '<option value="">Select Organization</option>';
-                    
-                    orgs.forEach(function(org) {
+
+                    orgs.forEach(function (org) {
                         html += `<option value="${org.id}">${org.name}</option>`;
                     });
-                    
+
                     $('#rideOrgId').html(html);
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     showToast('Error', 'Failed to load organizations', 'error');
                 }
             });
         }
     </script>
 </body>
+
 </html>

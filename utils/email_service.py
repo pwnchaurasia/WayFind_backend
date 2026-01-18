@@ -78,7 +78,7 @@ Made in India with ❤️
         """Send password reset email (for future use)"""
         try:
             from_email = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
-            app_name = os.getenv("APP_NAME", "WayFind")
+            app_name = os.getenv("APP_NAME", "Squadra")
 
             # TODO: Create password reset email template
             # Similar structure to invitation email

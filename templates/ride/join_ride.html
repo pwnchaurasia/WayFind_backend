@@ -3,41 +3,57 @@
 
 {% block extra_css %}
 <style>
-body { background: var(--bg-primary); }
-.join-container {
-    background: var(--bg-card);
-    border-radius: 16px;
-    padding: 2rem;
-    max-width: 500px;
-    margin: 3rem auto;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-}
-.ride-info {
-    text-align: center;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 1.5rem;
-}
-.stat-box {
-    background: var(--bg-secondary);
-    padding: 1rem;
-    border-radius: 8px;
-    text-align: center;
-    margin: 1rem 0;
-}
-.payment-alert {
-    background: rgba(251, 191, 36, 0.1);
-    border: 1px solid var(--warning-color);
-    border-radius: 8px;
-    padding: 1rem;
-    margin: 1rem 0;
-}
+    body {
+        background: var(--bg-primary);
+    }
+
+    .join-container {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 500px;
+        margin: 3rem auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .ride-info {
+        text-align: center;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-box {
+        background: var(--bg-secondary);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        margin: 1rem 0;
+    }
+
+    .payment-alert {
+        background: rgba(251, 191, 36, 0.1);
+        border: 1px solid var(--warning-color);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="join-container">
     <div class="ride-info">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <a href="squadra://squadra.app/join/ride/{{ ride.id }}" class="btn btn-primary"
+                style="background:var(--accent-green); border:none; width: 100%; padding: 12px; margin-bottom: 10px;">🚀
+                Open in App</a>
+            <a href="https://play.google.com/store/apps/details?id=com.luciferthelight.squadra"
+                style="color:var(--text-secondary); font-size: 0.9rem; text-decoration: underline;">Download App if not
+                installed</a>
+        </div>
+        <hr style="border-color: var(--border-color); margin-bottom: 1.5rem;">
+
         <h2 style="color: var(--text-primary); margin-bottom: 0.5rem;">{{ ride.name }}</h2>
         <p style="color: var(--text-secondary); margin: 0;">{{ ride.organization_name }}</p>
     </div>
@@ -62,7 +78,8 @@ body { background: var(--bg-primary); }
 
     <form method="POST" action="{{ url_for('confirm_join_ride', ride_id=ride.id) }}">
         <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.875rem;">
-            Joining as: <strong style="color: var(--text-primary);">{{ user.name or user.phone_number }}</strong>
+            Joining as: <strong style="color: var(--text-primary);">{% if user %}{{ user.name or user.phone_number }}{%
+                else %}Guest{% endif %}</strong>
         </p>
 
         <div class="form-group">
@@ -76,7 +93,8 @@ body { background: var(--bg-primary); }
             </select>
         </div>
 
-        <div id="new-vehicle-form" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+        <div id="new-vehicle-form"
+            style="display: none; margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
             <h4 style="color: var(--text-primary); margin-bottom: 1rem; font-size: 1rem;">Add New Vehicle</h4>
             <div class="form-group">
                 <label class="form-label">Make *</label>
@@ -97,10 +115,15 @@ body { background: var(--bg-primary); }
 
 {% block extra_js %}
 <script>
-function toggleNewVehicle() {
-    const select = document.getElementById('vehicle_select');
-    const form = document.getElementById('new-vehicle-form');
-    form.style.display = select.value === 'new' ? 'block' : 'none';
-}
+    function toggleNewVehicle() {
+        const select = document.getElementById('vehicle_select');
+        const form = document.getElementById('new-vehicle-form');
+        form.style.display = select.value === 'new' ? 'block' : 'none';
+    }
+
+    window.onload = function () {
+        // Try to open app immediately
+        window.location.href = "squadra://squadra.app/join/ride/{{ ride.id }}";
+    };
 </script>
 {% endblock %}

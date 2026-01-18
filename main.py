@@ -25,7 +25,7 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 
 app = FastAPI(
-    title="wayfind",
+    title="Squadra",
     generate_unique_id_function=custom_generate_unique_id
 )
 
@@ -52,4 +52,7 @@ async def root(request: Request, current_user = Depends(get_current_user_web)):
 
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
+from api import web_api
+
 app.include_router(main.api_router, prefix="/v1")
+app.include_router(web_api.router) # Root level for .well-known and /join
