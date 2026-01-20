@@ -35,3 +35,26 @@ class ParticipantRole(str, Enum):
     MARSHAL = "marshal"
     SWEEP = "sweep"
     BANNED = "banned"
+
+class ActivityType(str, Enum):
+    # Attendance activities
+    ARRIVED_MEETUP = "arrived_meetup"
+    CHECKED_IN_STOP = "checked_in_stop"
+    REACHED_DESTINATION = "reached_destination"
+    REACHED_HOME = "reached_home"
+    
+    # Ride lifecycle events
+    RIDE_STARTED = "ride_started"
+    RIDE_PAUSED = "ride_paused"
+    RIDE_RESUMED = "ride_resumed"
+    RIDE_ENDED = "ride_ended"
+    
+    # User actions
+    USER_JOINED = "user_joined"
+    USER_LEFT = "user_left"
+    
+    # Alerts
+    SOS_ALERT = "sos_alert"
+    LOW_FUEL = "low_fuel"
+    BREAKDOWN = "breakdown"
+    NEED_HELP = "need_help"

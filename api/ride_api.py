@@ -337,8 +337,29 @@ async def update_ride_api(
                 # Check for status transitions to set timestamps
                 if new_status == RideStatus.ACTIVE and ride.status != RideStatus.ACTIVE:
                     ride.started_at = datetime.now(timezone.utc)
+                    
+                    # Create activity for ride started
+                    from db.models import RideActivity
+                    activity = RideActivity(
+                        ride_id=ride.id,
+                        user_id=current_user.id,
+                        activity_type='ride_started',
+                        message=f"🚀 Ride started by {current_user.name or 'Admin'}"
+                    )
+                    db.add(activity)
+                    
                 elif new_status == RideStatus.COMPLETED and ride.status != RideStatus.COMPLETED:
                     ride.ended_at = datetime.now(timezone.utc)
+                    
+                    # Create activity for ride ended
+                    from db.models import RideActivity
+                    activity = RideActivity(
+                        ride_id=ride.id,
+                        user_id=current_user.id,
+                        activity_type='ride_ended',
+                        message=f"🏁 Ride ended by {current_user.name or 'Admin'}"
+                    )
+                    db.add(activity)
                     
                 ride.status = new_status
 
@@ -599,6 +620,18 @@ async def join_ride_api(
             paid_amount=0.0
         )
         db.add(participant)
+        
+        # Create activity for user joined (only if ride is active)
+        if ride.status == RideStatus.ACTIVE:
+            from db.models import RideActivity
+            activity = RideActivity(
+                ride_id=ride_id,
+                user_id=current_user.id,
+                activity_type='user_joined',
+                message=f"👋 {current_user.name or 'A rider'} joined the ride"
+            )
+            db.add(activity)
+        
         db.commit()
         db.refresh(participant)
 

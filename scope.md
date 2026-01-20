@@ -1,12 +1,52 @@
-## CURRENT STATE
+# SQUADRA - Development Roadmap & Implementation Status
 
-- Organization management (create, manage, delete)
-- Member roles and permissions (Founder, Co-Founder, Admin)
-- Ride creation with Google Maps checkpoints
-- Payment tracking (manual mark as paid)
-- Attendance tracking (manual mark present/absent)
-- Join ride via shareable link
-- Role-based dashboards (Super Admin, Org Admin, Rider)
+> Last Updated: 2026-01-20
+
+---
+
+## ✅ COMPLETED FEATURES
+
+### Core Platform (Done)
+- [x] Organization management (create, manage, delete)
+- [x] Member roles and permissions (Founder, Co-Founder, Admin)
+- [x] Ride creation with Google Maps checkpoints
+- [x] Payment tracking (manual mark as paid)
+- [x] Attendance tracking (manual mark present/absent)
+- [x] Join ride via shareable link (deep links)
+- [x] Role-based dashboards
+- [x] Mobile App (React Native + Expo)
+
+### Deep Linking (Completed: Jan 2026)
+- [x] Universal HTTPS links for ride sharing
+- [x] Auto-join after login/profile completion
+- [x] Web join page for non-app users
+- [x] Android intent filters configured
+
+### Live Ride - Phase 1 (Completed: Jan 20, 2026)
+- [x] Auto check-in at checkpoints (GPS proximity validation)
+- [x] Activity feed (WhatsApp-style events)
+- [x] Riders list with attendance status
+- [x] SOS/Emergency alert button
+- [x] Quick alerts (Low Fuel, Breakdown, Need Help)
+- [x] Location tracking during active rides
+- [x] Geofence detection for checkpoints
+
+---
+
+## 🔄 IN PROGRESS
+
+### Live Ride - Phase 2 (Next: Map & Real-time)
+- [ ] Full-screen map with route drawing
+- [ ] Custom profile picture markers for riders
+- [ ] Real-time location updates on map (WebSocket)
+- [ ] Click-to-call and directions to rider
+- [ ] Group centering on map
+
+### Live Ride - Phase 3 (Future: Voice)
+- [ ] Push-to-talk voice communication
+- [ ] Discord-style voice channels
+- [ ] Voice commands while riding
+- [ ] Intercom/Bluetooth integration
 
 ---
 
@@ -15,32 +55,36 @@
 **Timeline:** 2-4 weeks | **Priority:** CRITICAL
 
 ### Mobile App Foundation
-
-- React Native/Flutter mobile app (iOS + Android)
-- Live GPS tracking during active rides
-- Background location tracking (battery optimized)
-- Push notifications (ride started, checkpoint nearby)
+| Feature | Status |
+|---------|--------|
+| React Native mobile app | ✅ Done |
+| Live GPS tracking during active rides | ✅ Done |
+| Background location tracking | ✅ Done |
+| Push notifications | 🔄 Pending |
 
 ### Safety & Legal
-
-- Emergency SOS button (shares location with admin + emergency contact)
-- Digital waiver/consent forms (sign before first ride)
-- Emergency contact management
-- Weather alerts for active rides
+| Feature | Status |
+|---------|--------|
+| Emergency SOS button | ✅ Done |
+| Digital waiver/consent forms | ⏳ Planned |
+| Emergency contact management | ⏳ Planned |
+| Weather alerts for active rides | ⏳ Planned |
 
 ### Ride Experience
-
-- Automatic check-in at checkpoints (GPS proximity validation)
-- Real-time participant location on map (admin view)
-- Ride start/end notifications (WhatsApp/SMS)
-- Photo uploads at checkpoints
+| Feature | Status |
+|---------|--------|
+| Automatic check-in at checkpoints | ✅ Done |
+| Real-time participant location on map | 🔄 Phase 2 |
+| Ride start/end notifications | 🔄 Pending |
+| Photo uploads at checkpoints | ⏳ Planned |
 
 ### Payment Integration
-
-- Razorpay/PhonePe integration
-- Online payment collection
-- Payment receipt generation
-- Payment reminders
+| Feature | Status |
+|---------|--------|
+| Razorpay/PhonePe integration | ⏳ Planned |
+| Online payment collection | ⏳ Planned |
+| Payment receipt generation | ⏳ Planned |
+| Payment reminders | ⏳ Planned |
 
 ---
 
@@ -49,26 +93,23 @@
 **Timeline:** 1-2 months | **Priority:** HIGH
 
 ### Admin Tools
-
-- Bulk member import (CSV/Excel upload)
-- Export reports (attendance, payments, participant list)
-- Ride summary generation (PDF/Excel)
-- Payment reconciliation dashboard
-- Automated reminders (ride upcoming, payment pending)
+- [ ] Bulk member import (CSV/Excel upload)
+- [ ] Export reports (attendance, payments, participant list)
+- [ ] Ride summary generation (PDF/Excel)
+- [ ] Payment reconciliation dashboard
+- [ ] Automated reminders (ride upcoming, payment pending)
 
 ### Communication
-
-- WhatsApp API integration (ride updates, reminders)
-- Email notifications (ride invites, updates)
-- In-app chat (organization members)
-- Broadcast messages (admin to all members)
+- [ ] WhatsApp API integration
+- [ ] Email notifications
+- [ ] In-app chat (organization members)
+- [ ] Broadcast messages (admin to all members)
 
 ### User Experience
-
-- Offline mode (view past rides, downloaded routes)
-- Ride history with photos
-- Profile management (add vehicles, emergency contacts)
-- Notification preferences
+- [ ] Offline mode (view past rides, downloaded routes)
+- [ ] Ride history with photos
+- [ ] Profile management (add vehicles, emergency contacts)
+- [ ] Notification preferences
 
 ---
 
@@ -77,228 +118,123 @@
 **Timeline:** 2-3 months | **Priority:** MEDIUM-HIGH
 
 ### Gamification
-
-- Individual leaderboards (distance, rides completed, attendance rate)
-- Organization leaderboards (most active, best attendance)
-- Badges and achievements (distance milestones, streak badges)
-- Monthly challenges (ride 500km, attend 4 rides)
+- [ ] Individual leaderboards
+- [ ] Organization leaderboards
+- [ ] Badges and achievements
+- [ ] Monthly challenges
 
 ### Social Features
-
-- Ride feed (photos, stories, highlights)
-- Tag members in photos
-- Like, comment, share posts
-- Member profiles (stats, badges, vehicles)
+- [ ] Ride feed (photos, stories, highlights)
+- [ ] Tag members in photos
+- [ ] Like, comment, share posts
+- [ ] Member profiles (stats, badges, vehicles)
 
 ### Analytics Dashboard
-
-- Personal stats (monthly distance, riding patterns, favorite routes)
-- Organization analytics (member growth, engagement, retention)
-- Ride analytics (completion rate, average attendance, payment collection)
-- Export analytics reports
-
----
-
-## PHASE 4: ROUTE DISCOVERY
-
-**Timeline:** 2-3 months | **Priority:** MEDIUM
-
-### Route Management
-
-- Save completed ride routes automatically
-- Name, describe, and categorize routes
-- Mark difficulty level and terrain type
-- Add points of interest (food, fuel, scenic spots, rest stops)
-- Upload photos at key locations
-- Add safety notes and warnings
-
-### Route Library
-
-- Browse routes by city, region, state
-- Filter by distance, difficulty, duration, rating
-- Search routes by name or location
-- View route on map with elevation profile
-- See photos from past rides on this route
-- View which organizations rode this route
-
-### Route Sharing
-
-- Rate routes (1-5 stars)
-- Write reviews (road condition, scenic value, best season)
-- Share routes with other organizations
-- Bookmark favorite routes
-- Duplicate route for your organization
-
-### Route Recommendations
-
-- AI-suggested routes based on organization history
-- Popular routes in your region
-- Trending routes this month
-- Similar organizations also rode these routes
-- Seasonal recommendations
+- [ ] Personal stats
+- [ ] Organization analytics
+- [ ] Ride analytics
+- [ ] Export analytics reports
 
 ---
 
-## PHASE 5: CROSS-ORGANIZATION FEATURES
+## PHASE 4-9: FUTURE ROADMAP
 
-**Timeline:** 2-3 months | **Priority:** MEDIUM
-
-### Discovery
-
-- Public organization profiles (showcase rides, members, stats)
-- Discover organizations in your city
-- Follow other organizations
-- View upcoming public rides from other orgs
-- Organization search and filters
-
-### Collaboration
-
-- Joint rides (co-host with multiple organizations)
-- Public ride events (open to all)
-- Organization-to-organization messaging
-- Share routes between organizations
-- Cross-org leaderboards (friendly competition)
+See original scope.md for full details on:
+- Phase 4: Route Discovery
+- Phase 5: Cross-Organization Features
+- Phase 6: Premium & Monetization
+- Phase 7: Marketplace & Services
+- Phase 8: Mobile App Enhancements
+- Phase 9: Advanced Features (AI, Integrations)
 
 ---
 
-## PHASE 6: PREMIUM & MONETIZATION
+## 📁 IMPLEMENTATION DETAILS
 
-**Timeline:** 3-4 months | **Priority:** MEDIUM
+### Live Ride System (Jan 20, 2026)
 
-### Premium Plans - Organizations
+#### Backend Files
+```
+api/live_ride_api.py          - Complete API for live ride features
+db/schemas/activity.py        - Pydantic schemas for activities
+db/models.py                  - Added RideActivity, UserLocation models
+utils/enums.py                - Added ActivityType enum
+alembic/versions/c1a2b3d4e5f6_add_live_ride_tables.py
+```
 
-- Custom branding (logo, colors, themes)
-- Remove Squadra branding
-- Advanced analytics and insights
-- Priority customer support
-- Extended ride history (unlimited storage)
-- API access for custom integrations
-- Custom certificates and badges for members
-- Bulk operations (mass invites, exports)
+#### Frontend Files
+```
+src/services/LiveRideLocationService.js    - Location tracking service
+src/components/liveride/ActivityFeed.jsx   - WhatsApp-style activity feed
+src/components/liveride/RidersList.jsx     - Participants with status
+src/components/liveride/index.js           - Component exports
+src/app/(main)/rides/[id]/live.jsx         - Main live ride screen
+src/apis/rideService.js                    - Added live ride API methods
+```
 
-### Premium Plans - Individual Riders
+#### API Endpoints
+```
+POST /v1/rides/{id}/checkin    - Auto check-in at checkpoint
+GET  /v1/rides/{id}/activities - Get activity feed
+POST /v1/rides/{id}/location   - Update rider location
+POST /v1/rides/{id}/alert      - Send SOS/alert
+GET  /v1/rides/{id}/live       - Get all live data
+```
 
-- Ad-free experience
-- Detailed personal analytics
-- Export ride data (GPX, KML, PDF)
-- Early access to new features
-- Premium badges and profile customization
-- Advanced route planning tools
+#### Activity Types
+- `arrived_meetup` - User arrived at meetup point
+- `checked_in_stop` - User checked in at a stop
+- `reached_destination` - User reached destination
+- `reached_home` - User reached home/dispersal
+- `ride_started` - Ride was started
+- `ride_ended` - Ride was ended
+- `user_joined` - User joined the ride
+- `user_left` - User left the ride
+- `sos_alert` - Emergency SOS alert
+- `low_fuel` - Low fuel alert
+- `breakdown` - Breakdown alert
+- `need_help` - Need help alert
 
-### Pricing Structure
+#### Database Tables
+```sql
+ride_activities:
+  - id, ride_id, user_id, activity_type, message
+  - latitude, longitude, checkpoint_id, metadata_json
+  - created_at
 
-**Free Tier:**
-- Up to 50 members per organization
-- Up to 10 rides per month
-- Basic features (ride creation, attendance, payment tracking)
-- 30-day ride history
-
-**Pro Tier - ₹2,999/month:**
-- Up to 200 members
-- Unlimited rides
-- Advanced analytics
-- WhatsApp integration
-- 1-year ride history
-- Priority support
-
-**Enterprise Tier - ₹9,999/month:**
-- Unlimited members
-- Custom branding
-- API access
-- Unlimited history
-- Dedicated support
-- Custom features on request
-
----
-
-## PHASE 7: MARKETPLACE & SERVICES
-
-**Timeline:** 4-6 months | **Priority:** LOW-MEDIUM
-
-### Service Directory
-
-- Find mechanics by location
-- Recommended workshops and service centers
-- Spare parts dealers
-- Riding gear stores
-- Insurance providers
-- Partner discounts for Squadra users
-
-### Ride Planning Tools
-
-- Multi-day trip planner
-- Hotel and stay recommendations along route
-- Fuel cost calculator
-- Toll calculator
-- Weather forecast integration (7-day)
-- Permits and documentation reminders
-
-### Marketplace
-
-- Buy/sell used motorcycles (commission-based)
-- Riding gear exchange
-- Tour operator listings (paid rides)
-- Sponsorship opportunities for brands
-- Event ticketing (rallies, meetups)
+user_locations:
+  - id, ride_id, user_id
+  - latitude, longitude, heading, speed, accuracy
+  - recorded_at
+```
 
 ---
 
-## PHASE 8: MOBILE APP ENHANCEMENTS
+## 🧪 TESTING CHECKLIST
 
-**Timeline:** 4-6 months | **Priority:** LOW-MEDIUM
-
-### Offline Features
-
-- Downloaded maps for offline use (100+ cities)
-- Offline route tracking
-- Auto-sync when back online
-- Cached ride history
-
-### Ride Modes
-
-- Solo ride mode (personal tracking without group)
-- Group ride mode (live sync with organization)
-- Training mode (practice routes)
-- Tour mode (multi-day journeys with daily summaries)
-
-### Smart Notifications
-
-- Upcoming ride reminders (1 day, 1 hour before)
-- Member location alerts (nearby riders)
-- Route deviation warnings
-- Checkpoint proximity alerts (500m, 100m)
-- Weather warnings (rain, fog, extreme heat)
-- Speed limit warnings
+### Live Ride Phase 1
+- [ ] Start a ride → Check activity shows "Ride started"
+- [ ] Navigate near meetup point → Check-in prompt appears
+- [ ] Tap check-in → Activity shows "arrived at meetup"
+- [ ] Tap SOS button → Alert sent to all riders
+- [ ] Check Riders tab → Shows all participants with status
+- [ ] Location updates every minute when tracking
 
 ---
 
-## PHASE 9: ADVANCED FEATURES
+## 📝 NOTES
 
-**Timeline:** 6-12 months | **Priority:** LOW
+### To Run Migration
+```bash
+cd /Users/apple/workspace/fastapi/WayFind_backend
+alembic upgrade head
+```
 
-### AI-Powered Features
+### To Test Live Ride
+1. Create a ride with checkpoints
+2. Start the ride (status = ACTIVE)
+3. Tap "Live" button on ride details
+4. Test check-in, SOS, and activity feed
 
-- Route optimization (avoid traffic, bad roads)
-- Best time to ride predictions (weather, traffic)
-- Automatic ride highlight videos
-- Voice commands while riding
-- Safety incident prediction and prevention
-- Smart route suggestions based on riding style
-
-### Integration Ecosystem
-
-- Helmet cam integration (GoPro, Insta360)
-- Bike GPS device sync (Garmin, TomTom)
-- Fitness tracker integration (Strava, Google Fit, Apple Health)
-- Music app integration (Spotify, Apple Music)
-- Navigation app shortcuts (Google Maps, Apple Maps, Waze)
-- Smart helmet integration (Bluetooth, comms)
-
-### Community Events
-
-- Virtual ride challenges (monthly competitions)
-- Charity rides organization
-- Mega meetups (500+ riders)
-- Skill workshops (cornering, off-road, first aid)
-- Competitions with prizes (longest ride, most scenic photo)
-- Regional rallies and festivals
+### Environment Variables Needed
+- `EXPO_PUBLIC_API_BASE_URL_DEV` - Backend URL for API calls

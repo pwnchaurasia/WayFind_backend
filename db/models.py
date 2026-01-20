@@ -285,6 +285,7 @@ class Ride(Base):
     checkpoints = relationship("RideCheckpoint", back_populates="ride", cascade="all, delete-orphan")
     participants = relationship("RideParticipant", back_populates="ride", cascade="all, delete-orphan")
     attendance_records = relationship("AttendanceRecord", back_populates="ride", cascade="all, delete-orphan")
+    activities = relationship("RideActivity", back_populates="ride", cascade="all, delete-orphan", order_by="desc(RideActivity.created_at)")
 
     def __repr__(self):
         return f"Ride -> id:{self.id} name: {self.name} status: {self.status}"
@@ -391,3 +392,64 @@ class AttendanceRecord(Base):
 
     def __repr__(self):
         return f"AttendanceRecord -> id:{self.id} ride_id: {self.ride_id} user_id: {self.user_id} checkpoint: {self.checkpoint_type}"
+
+
+class RideActivity(Base):
+    """Activity feed for rides - stores all events that happen during a ride"""
+    __tablename__ = "ride_activities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    ride_id = Column(UUID(as_uuid=True), ForeignKey("rides.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)  # Can be null for system events
+    
+    activity_type = Column(String(50), nullable=False, index=True)  # From ActivityType enum
+    message = Column(String(500), nullable=True)  # Human-readable message
+    
+    # Location data (if applicable)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    
+    # Reference to checkpoint (if applicable)
+    checkpoint_id = Column(UUID(as_uuid=True), ForeignKey("ride_checkpoints.id"), nullable=True)
+    
+    # Additional metadata as JSON string
+    metadata_json = Column(String(1000), nullable=True)  # JSON string for extra data
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Relationships
+    ride = relationship("Ride", back_populates="activities")
+    user = relationship("User")
+    checkpoint = relationship("RideCheckpoint")
+
+    def __repr__(self):
+        return f"RideActivity -> id:{self.id} ride_id: {self.ride_id} type: {self.activity_type}"
+
+
+class UserLocation(Base):
+    """Real-time location tracking for users during active rides"""
+    __tablename__ = "user_locations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    ride_id = Column(UUID(as_uuid=True), ForeignKey("rides.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    heading = Column(Float, nullable=True)  # Direction in degrees
+    speed = Column(Float, nullable=True)  # Speed in km/h
+    accuracy = Column(Float, nullable=True)  # GPS accuracy in meters
+    
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Relationships
+    ride = relationship("Ride")
+    user = relationship("User")
+
+    # Index for efficient querying of latest locations
+    __table_args__ = (
+        UniqueConstraint('ride_id', 'user_id', 'recorded_at', name='unique_ride_user_location_time'),
+    )
+
+    def __repr__(self):
+        return f"UserLocation -> ride:{self.ride_id} user:{self.user_id} at ({self.latitude}, {self.longitude})"
