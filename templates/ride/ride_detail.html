@@ -202,7 +202,7 @@
                                 DISBURSEMENT POINT
                             </div>
                             <div style="color: var(--text-secondary); font-size: 0.875rem;">
-                                {{ ride.checkpoints.disbursement.address or 'Lat: ' + ride.checkpoints.disbursement.latitude|string + ', Lng: ' + checkpoints.disbursement.longitude|string }}
+                                {{ ride.checkpoints.disbursement.address or 'Lat: ' + ride.checkpoints.disbursement.latitude|string + ', Lng: ' + ride.checkpoints.disbursement.longitude|string }}
                             </div>
                         </div>
                         <a href="{{ ride.checkpoints.disbursement.google_maps_url }}"

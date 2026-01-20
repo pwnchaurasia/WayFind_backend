@@ -35,6 +35,7 @@
         border-radius: 8px;
         font-weight: bold;
         margin: 10px;
+        cursor: pointer;
     }
 
     .btn-store {
@@ -65,7 +66,7 @@
     <p style="color: var(--text-secondary);">{{ organization.description }}</p>
 
     <div style="margin-top: 30px;">
-        <a href="squadra://squadra.app/join/org/{{ join_code }}" class="btn-app">Open in Squadra App</a>
+        <a href="#" onclick="openApp(); return false;" class="btn-app">Open in Squadra App</a>
         <br>
         <a href="https://play.google.com/store/apps/details?id=com.luciferthelight.squadra" class="btn-store">Download
             on Play Store</a>
@@ -75,9 +76,33 @@
 
 {% block extra_js %}
 <script>
+    // Deep link URL - Expo uses scheme://path format
+    const DEEP_LINK = "squadra://join/org/{{ join_code }}";
+
+    // Android intent fallback
+    const INTENT_URL = "intent://join/org/{{ join_code }}#Intent;scheme=squadra;package=com.luciferthelight.squadra;end";
+
+    function openApp() {
+        // Try custom scheme first
+        const start = Date.now();
+        window.location.href = DEEP_LINK;
+
+        // If the app didn't open within 1.5s, the page is still visible
+        // Try intent:// for Android as fallback
+        setTimeout(function () {
+            if (Date.now() - start < 2000) {
+                // Page is still here, app didn't open
+                // Try Android intent
+                if (/android/i.test(navigator.userAgent)) {
+                    window.location.href = INTENT_URL;
+                }
+            }
+        }, 1500);
+    }
+
     window.onload = function () {
-        // Try to open app immediately
-        window.location.href = "squadra://squadra.app/join/org/{{ join_code }}";
+        // Try to open app immediately on page load
+        openApp();
     };
 </script>
 {% endblock %}

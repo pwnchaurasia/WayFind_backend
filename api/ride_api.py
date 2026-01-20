@@ -98,6 +98,114 @@ async def create_ride_api(
         )
 
 
+@router.get("/my-rides")
+async def get_my_rides_api(
+        status_filter: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = "date",  # date, name, status
+        sort_order: Optional[str] = "desc",  # asc, desc
+        include_completed: bool = True,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """
+    Get rides the current user has joined (API - Mobile)
+    - Returns only rides where user is a participant
+    - Supports filtering by status (planned/active/completed)
+    - Supports search by ride name
+    - Supports sorting by date, name, status
+    - Sorted by scheduled_date by default (newest first)
+    """
+    try:
+        from sqlalchemy import case, desc, asc, or_
+        
+        # Get all participant records for current user
+        query = db.query(Ride).join(
+            RideParticipant,
+            (RideParticipant.ride_id == Ride.id) & 
+            (RideParticipant.user_id == current_user.id) &
+            (RideParticipant.is_deleted == False)
+        )
+        
+        # Status filtering
+        if status_filter:
+            query = query.filter(Ride.status == status_filter)
+        elif not include_completed:
+            query = query.filter(Ride.status.in_([RideStatus.PLANNED, RideStatus.ACTIVE]))
+        
+        # Search by ride name or organization name
+        if search:
+            search_term = f"%{search}%"
+            query = query.join(Organization, Ride.organization_id == Organization.id, isouter=True)
+            query = query.filter(
+                or_(
+                    Ride.name.ilike(search_term),
+                    Organization.name.ilike(search_term)
+                )
+            )
+        
+        # Sorting
+        if sort_by == "name":
+            order_col = Ride.name
+        elif sort_by == "status":
+            order_col = Ride.status
+        else:  # date (default)
+            order_col = Ride.scheduled_date
+        
+        if sort_order == "asc":
+            query = query.order_by(asc(order_col))
+        else:
+            query = query.order_by(desc(order_col))
+        
+        rides = query.all()
+        
+        rides_data = []
+        for ride in rides:
+            # Get organization
+            org = db.query(Organization).filter(Organization.id == ride.organization_id).first()
+            
+            # Get participant count
+            participants_count = db.query(func.count(RideParticipant.id)).filter(
+                RideParticipant.ride_id == ride.id,
+                RideParticipant.is_deleted == False
+            ).scalar() or 0
+            
+            # Get current user's participation details
+            my_participation = db.query(RideParticipant).filter(
+                RideParticipant.ride_id == ride.id,
+                RideParticipant.user_id == current_user.id,
+                RideParticipant.is_deleted == False
+            ).first()
+            
+            ride_dict = RideResponse.model_validate(ride).model_dump(mode='json')
+            ride_dict['organization'] = {
+                "id": str(org.id) if org else None,
+                "name": org.name if org else "Unknown",
+                "logo": org.logo if org else None
+            }
+            ride_dict['participants_count'] = participants_count
+            ride_dict['spots_left'] = ride.max_riders - participants_count
+            ride_dict['my_payment_status'] = {
+                "has_paid": my_participation.has_paid if my_participation else False,
+                "paid_amount": my_participation.paid_amount if my_participation else 0
+            }
+            
+            rides_data.append(ride_dict)
+        
+        return {
+            "status": "success",
+            "rides": rides_data,
+            "total": len(rides_data)
+        }
+    
+    except Exception as e:
+        logger.exception(f"Error fetching my rides: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch rides"
+        )
+
+
 @router.get("/list")
 async def list_rides_api(
         organization_id: Optional[UUID] = None,
