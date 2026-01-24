@@ -76,11 +76,24 @@ async def verify_mobile_and_otp(request: OTPVerification, db: Session = Depends(
 
         auth_token = create_auth_token(user)
         refresh_token = create_refresh_token(user)
+        
+        # Include user info for frontend to check profile completion
+        user_data = {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "avatar": user.avatar if hasattr(user, 'avatar') else None,
+            "profile_picture_url": user.profile_picture_url if hasattr(user, 'profile_picture_url') else None,
+        }
+        
         return JSONResponse(
             content={
+                "status": "success",
                 "access_token": auth_token,
                 "refresh_token": refresh_token,
-                "is_profile_complete": user.is_profile_complete
+                "is_profile_complete": user.is_profile_complete,
+                "user": user_data
             },
             status_code=status.HTTP_201_CREATED
         )
