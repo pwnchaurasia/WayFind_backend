@@ -544,6 +544,9 @@ async def get_live_ride_data(
             RideParticipant.is_deleted == False
         ).all()
 
+        # Import UserRideInformation for vehicle data
+        from db.models import UserRideInformation
+        
         for p in participants:
             # Get latest location
             latest_loc = db.query(UserLocation).filter(
@@ -554,6 +557,19 @@ async def get_live_ride_data(
             # Get user info
             user = db.query(User).filter(User.id == p.user_id).first()
 
+            # Get vehicle info
+            vehicle_data = None
+            if p.vehicle_info_id:
+                vehicle = db.query(UserRideInformation).filter(
+                    UserRideInformation.id == p.vehicle_info_id
+                ).first()
+                if vehicle:
+                    vehicle_data = {
+                        "make": vehicle.vehicle_make,
+                        "model": vehicle.vehicle_model,
+                        "license_plate": vehicle.vehicle_plate
+                    }
+
             # Get attendance status at meetup
             attendance = db.query(AttendanceRecord).filter(
                 AttendanceRecord.ride_id == ride_id,
@@ -561,18 +577,39 @@ async def get_live_ride_data(
                 AttendanceRecord.checkpoint_type == CheckpointType.MEETUP
             ).first()
 
+            # Determine participant role
+            role = p.role.value if hasattr(p.role, 'value') else str(p.role) if p.role else "rider"
+            is_lead = role == "lead"
+
+            # Include all participants (with or without location)
+            rider_data = {
+                "user_id": str(p.user_id),
+                "name": user.name if user else None,
+                "profile_picture": user.profile_picture_url if user else None,
+                "phone_number": user.phone_number if user else None,
+                "role": role,
+                "is_lead": is_lead,
+                "vehicle": vehicle_data,
+                "attendance_status": attendance.status if attendance else None,
+                "latitude": None,
+                "longitude": None,
+                "heading": None,
+                "speed": None,
+                "last_updated": None,
+                "has_location": False
+            }
+            
             if latest_loc:
-                rider_locations_data.append({
-                    "user_id": str(p.user_id),
-                    "name": user.name if user else None,
-                    "profile_picture": user.profile_picture_url if user else None,
+                rider_data.update({
                     "latitude": latest_loc.latitude,
                     "longitude": latest_loc.longitude,
                     "heading": latest_loc.heading,
                     "speed": latest_loc.speed,
                     "last_updated": latest_loc.recorded_at.isoformat(),
-                    "attendance_status": attendance.status if attendance else None
+                    "has_location": True
                 })
+            
+            rider_locations_data.append(rider_data)
 
         # Get checkpoints
         checkpoints = db.query(RideCheckpoint).filter(
