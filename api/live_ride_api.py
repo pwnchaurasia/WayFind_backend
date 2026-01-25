@@ -565,9 +565,9 @@ async def get_live_ride_data(
                 ).first()
                 if vehicle:
                     vehicle_data = {
-                        "make": vehicle.vehicle_make,
-                        "model": vehicle.vehicle_model,
-                        "license_plate": vehicle.vehicle_plate
+                        "make": vehicle.make,
+                        "model": vehicle.model,
+                        "license_plate": vehicle.license_plate
                     }
 
             # Get attendance status at meetup
