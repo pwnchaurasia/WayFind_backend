@@ -52,24 +52,21 @@ class LiveKitService:
             room_name = self.get_room_name(ride_id)
             identity = str(user_id)
             
-            # Create access token
-            token = api.AccessToken(self.api_key, self.api_secret)
-            token.identity = identity
-            token.name = user_name or "Rider"
-            
-            # Set token expiry
-            token.ttl = timedelta(hours=ttl_hours)
-            
-            # Grant video room permissions
+            # Create access token using the fluent API (livekit-api 0.6.x)
             # Lead can publish (broadcast), all can subscribe (listen)
-            grant = api.VideoGrants(
-                room_join=True,
-                room=room_name,
-                can_publish=is_lead,  # Only Lead can broadcast
-                can_subscribe=True,  # Everyone can listen
-                can_publish_data=is_lead,  # Lead can send data messages
+            token = (
+                api.AccessToken(self.api_key, self.api_secret)
+                .with_identity(identity)
+                .with_name(user_name or "Rider")
+                .with_ttl(timedelta(hours=ttl_hours))
+                .with_grants(api.VideoGrants(
+                    room_join=True,
+                    room=room_name,
+                    can_publish=is_lead,  # Only Lead can broadcast
+                    can_subscribe=True,  # Everyone can listen
+                    can_publish_data=is_lead,  # Lead can send data messages
+                ))
             )
-            token.add_grant(grant)
             
             jwt_token = token.to_jwt()
             

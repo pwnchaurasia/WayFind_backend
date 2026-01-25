@@ -92,29 +92,87 @@ Squadra is a motorcycle riding platform.
 
 ---
 
-## 5. Phase 3: Voice Communication (FUTURE) 🎙️
-*Adding the "Discord-like" layer.*
+## 5. Phase 3: Voice Communication (IMPLEMENTED) 🎙️
+*Universal Intercom - One-way broadcast from Lead to Members.*
 
-### 5.1 Voice Channels
-**Goal:** Seamless, low-latency voice chat for safety and coordination.
-* **Channel Types:**
-    * **All Riders:** General channel (default).
-    * **Leads/Marshals:** Private command channel.
-* **Interaction:**
-    * **Push-to-Talk (PTT):** Big onscreen button for quick bursts.
-    * **Always-On:** Noise-canceling open mic for leads (optional).
+### 5.1 Concept: Universal Intercom
+**Goal:** Simple, one-way voice broadcast for ride coordination.
+* **Lead (1 person):** Broadcasts voice to all riders.
+* **Members (everyone else):** Listen only - no broadcast capability.
+* **Use Case:** Lead can announce directions, hazards, stops without needing walkie-talkies.
 
-### 5.2 Technical Stack Proposals
-* **Engine:** Agora.io or LiveKit (WebRTC).
-* **Architecture:** Join voice room via `ride_id`.
-* **UI:** Floating voice controls overlay map.
+### 5.2 Technical Implementation
+* **Engine:** LiveKit (WebRTC) - `livekit-api` Python SDK for backend tokens.
+* **API Endpoint:** `GET /v1/rides/{id}/intercom/token` - Returns JWT token with permissions.
+* **Room Naming:** `ride_{uuid}` - One room per active ride.
+* **Permissions:**
+    * Lead: `can_publish=True, can_subscribe=True`
+    * Members: `can_publish=False, can_subscribe=True`
+
+### 5.3 UX Design Decisions (Jan 25, 2026)
+**Location:** Intercom control lives in the **Live Ride screen header** (not a floating overlay).
+
+| User Role | Icon | State | Color | Action |
+|-----------|------|-------|-------|--------|
+| **Lead** | `mic` | Broadcasting | Green border | Tap to mute/unmute |
+| **Member (connected)** | `headphones` | Listening | Green border | Tap to disconnect |
+| **Member (disconnected)** | `headphones` | Off | Gray | Tap to start listening |
+| **Connecting** | spinner | - | Orange | - |
+
+**Design Rationale:**
+* ❌ NO floating overlay bars (were cutting off content).
+* ❌ NO auto-connect (users opt-in by tapping the icon).
+* ✅ Clean header icon next to SOS button.
+* ✅ Visual feedback via border color and icon changes.
+
+### 5.4 Backend Files
+```
+services/livekit_service.py     - Token generation, room management
+api/intercom_api.py             - REST endpoints for intercom
+```
+
+### 5.5 Frontend Files
+```
+src/hooks/useIntercom.js                   - LiveKit connection hook
+src/app/(main)/rides/[id]/live.jsx         - IntercomButton in header
+src/components/intercom/IntercomBar.jsx    - DEPRECATED (not used)
+```
+
+### 5.6 Environment Variables Required
+```
+LIVEKIT_URL=ws://localhost:7880           # LiveKit server URL
+LIVEKIT_API_KEY=devkey                    # API key
+LIVEKIT_API_SECRET=secret                 # API secret
+```
 
 ---
 
-## 6. Implementation Prompts (For Antigravity)
+## 6. UI/UX Guidelines
+
+### 6.1 Ride Details Page Layout
+**Info Card Structure (Top to Bottom):**
+1. **Title Row:** Ride name + Org name (left), Status badge (right)
+2. **Meta Row:** Date, Ride Type, Payment amount
+3. **Stats Row:** Joined / Spots Left / Max Riders
+4. **Action Buttons Row:** Start Ride | End Ride | Live (horizontal, below stats)
+
+**Header Icons:**
+* Edit (if admin, ride not completed)
+* Share (always visible)
+* NO copy link icon (removed to reduce clutter)
+
+### 6.2 Live Ride Screen Header
+* Back button (left)
+* "Live Ride" title + LIVE badge + Tracking indicator (center)
+* Intercom button (right, before SOS)
+* SOS button (far right)
+
+---
+
+## 7. Implementation Prompts (For Antigravity)
 
 ### Prompt for Phase 2 (Map)
 > "Reference Master Doc Section 4. Implement `LiveRideMap.js`. Use `react-native-maps`. Render the `riderLocations` from the `getLiveData` API as custom Markers with profile pictures. Draw a Polyline between ride checkpoints. Add a bottom sheet that shows the selected rider's details."
 
-### Prompt for Phase 3 (Voice)
-> "Reference Master Doc Section 5. Integrate Agora SDK. Create `VoiceControl.js` overlay. When user joins active ride, auto-join Agora channel `ride_{id}`. Implement PTT button logic."
+### Prompt for Phase 3 (Voice) - DONE
+> "Intercom is implemented via LiveKit. See Section 5. The IntercomButton component in live.jsx handles connection. useIntercom hook manages LiveKit room connection. Backend token generation in livekit_service.py."
