@@ -208,12 +208,26 @@ async def get_intercom_status(
                     "profile_picture": lead_user.profile_picture_url
                 }
         
+        
+        # Get real-time participants from LiveKit
+        participants = await livekit_service.list_room_participants(ride_id)
+        
+        # Find who is talking (publishing audio)
+        active_speakers = []
+        for p in participants:
+            for t in p.get("tracks", []):
+                # Check for active microphone
+                if t.get("source") == "Source.MICROPHONE" and not t.get("muted"):
+                    active_speakers.append(p.get("name"))
+
         return {
             "status": "success",
             "is_available": is_available,
             "ride_status": ride.status.value,
             "lead": lead_info,
-            "participants_connected": 0  # Would need LiveKit API to get actual count
+            "participants_connected": len(participants),
+            "active_speakers": active_speakers,
+            "debug_info": participants  # Full debug info
         }
         
     except HTTPException:
@@ -386,4 +400,31 @@ async def remove_ride_lead(
     except Exception as e:
         db.rollback()
         logger.exception(f"Error removing lead: {e}")
-        raise HTTPException(status_code=500, detail="Failed to remove lead")
+
+# ============================================
+# DEBUG LEAK ENDPOINT
+# ============================================
+
+@router.get("/{ride_id}/live/debug")
+async def debug_livekit_room(
+    ride_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Debug endpoint to see raw LiveKit room state.
+    Shows all participants and their active tracks (audio/video).
+    """
+    try:
+        # Get real-time participants from LiveKit
+        participants = await livekit_service.list_room_participants(ride_id)
+        
+        return {
+            "status": "success",
+            "ride_id": str(ride_id),
+            "room_name": livekit_service.get_room_name(ride_id),
+            "participant_count": len(participants),
+            "participants": participants
+        }
+    except Exception as e:
+        logger.exception(f"Error debugging LiveKit room: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

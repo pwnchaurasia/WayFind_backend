@@ -88,15 +88,34 @@ class LiveKitService:
         """
         try:
             room_name = self.get_room_name(ride_id)
-            room_service = api.RoomServiceClient(
-                self.livekit_url.replace("ws://", "http://").replace("wss://", "https://"),
-                self.api_key,
-                self.api_secret
-            )
-            participants = await room_service.list_participants(
-                api.ListParticipantsRequest(room=room_name)
-            )
-            return participants.participants
+            http_url = self.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
+            
+            async with api.LiveKitAPI(http_url, self.api_key, self.api_secret) as lkapi:
+                response = await lkapi.room.list_participants(
+                    api.ListParticipantsRequest(room=room_name)
+                )
+            
+            # Extract relevant info for debuging
+            participants_data = []
+            for p in response.participants:
+                tracks = []
+                for t in p.tracks:
+                    tracks.append({
+                        "sid": t.sid,
+                        "type": str(t.type),  # AUDIO or VIDEO
+                        "source": str(t.source), # MICROPHONE, CAMERA, etc
+                        "muted": t.muted
+                    })
+                
+                participants_data.append({
+                    "identity": p.identity,
+                    "name": p.name,
+                    "state": str(p.state),
+                    "joined_at": str(p.joined_at),
+                    "tracks": tracks
+                })
+                
+            return participants_data
         except Exception as e:
             logger.exception(f"Failed to list room participants: {e}")
             return []
@@ -107,14 +126,12 @@ class LiveKitService:
         """
         try:
             room_name = self.get_room_name(ride_id)
-            room_service = api.RoomServiceClient(
-                self.livekit_url.replace("ws://", "http://").replace("wss://", "https://"),
-                self.api_key,
-                self.api_secret
-            )
-            await room_service.remove_participant(
-                api.RoomParticipantIdentity(room=room_name, identity=str(user_id))
-            )
+            http_url = self.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
+            
+            async with api.LiveKitAPI(http_url, self.api_key, self.api_secret) as lkapi:
+                await lkapi.room.remove_participant(
+                    api.RoomParticipantIdentity(room=room_name, identity=str(user_id))
+                )
             logger.info(f"Removed participant {user_id} from room {room_name}")
             return True
         except Exception as e:
@@ -127,19 +144,17 @@ class LiveKitService:
         """
         try:
             room_name = self.get_room_name(ride_id)
-            room_service = api.RoomServiceClient(
-                self.livekit_url.replace("ws://", "http://").replace("wss://", "https://"),
-                self.api_key,
-                self.api_secret
-            )
-            await room_service.mute_published_track(
-                api.MuteRoomTrackRequest(
-                    room=room_name,
-                    identity=str(user_id),
-                    muted=mute,
-                    # track_sid would need to be obtained from track listing
+            http_url = self.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
+            
+            async with api.LiveKitAPI(http_url, self.api_key, self.api_secret) as lkapi:
+                await lkapi.room.mute_published_track(
+                    api.MuteRoomTrackRequest(
+                        room=room_name,
+                        identity=str(user_id),
+                        muted=mute,
+                        # track_sid would need to be obtained from track listing
+                    )
                 )
-            )
             return True
         except Exception as e:
             logger.exception(f"Failed to mute participant: {e}")
