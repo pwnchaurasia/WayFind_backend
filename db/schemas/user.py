@@ -17,7 +17,7 @@ class UserResponse(BaseModel):
     email: Optional[EmailStr]
     phone_number: Optional[str]
     is_active: bool
-    profile_picture_url: Optional[HttpUrl]
+    profile_picture_url: Optional[str]
 
     @computed_field
     @property
@@ -41,3 +41,8 @@ class UserWithLocation(BaseModel):
     speed: Optional[float] = None
     heading: Optional[float] = None
     timestamp: Optional[str] = None
+
+
+
+class NotifyMe(BaseModel):
+    email: str

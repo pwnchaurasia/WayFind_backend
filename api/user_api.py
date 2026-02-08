@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status, Depends, Request, HTTPException
+from fastapi import APIRouter, status, Depends, Request, HTTPException, UploadFile, File
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
@@ -15,6 +15,7 @@ from services.user_vehicle_service import UserVehicleService
 from utils import app_logger
 from utils.dependencies import get_current_user
 from utils import resp_msgs
+from utils.storage import storage
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -70,6 +71,42 @@ def user_profile(current_user = Depends(get_current_user)):
 
     except Exception as e:
         app_logger.exceptionlogs(f"Error while fetching user profile, Error: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@app_logger.functionlogs(log="app")
+@router.post("/me/avatar", status_code=status.HTTP_200_OK)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        success, url, error = await storage.upload_avatar(file)
+        if not success:
+             return JSONResponse(
+                content={"status": "error", "message": error or "Failed to upload avatar"},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update user profile
+        current_user.profile_picture_url = url
+        db.commit()
+        db.refresh(current_user)
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "Avatar uploaded successfully",
+                "avatar_url": url,
+                "user": UserResponse.model_validate(current_user).model_dump(mode="json")
+            },
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        logger.exception(f"Error uploading avatar: {e}")
         return JSONResponse(
             content={"status": "error", "message": resp_msgs.STATUS_500_MSG},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR

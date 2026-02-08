@@ -1,0 +1,29 @@
+body {
+    min-height: max(884px, 100dvh);
+}
+.logo{
+    height: 50px;
+    width: 50px;
+}
+.logo-bottom{
+    height: 35px;
+    width: 35px;
+}
+.glow-primary {
+    box-shadow: 0 0 20px rgba(13, 242, 89, 0.3);
+}
+
+.text-glow {
+    text-shadow: 0 0 10px rgba(13, 242, 89, 0.5);
+}
+
+.glass-panel {
+    background: rgba(40, 57, 46, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(156, 186, 166, 0.1);
+}
+
+.road-texture {
+    background-image: radial-gradient(circle at 2px 2px, rgba(13, 242, 89, 0.05) 1px, transparent 0);
+    background-size: 40px 40px;
+}

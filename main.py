@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 
+from db.schemas.user import NotifyMe
+
 load_dotenv('.env')
 
 
@@ -34,6 +36,8 @@ app.mount("/templates", StaticFiles(directory="templates"), name="templates")
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
 os.makedirs("uploads/logos", exist_ok=True)
+os.makedirs("uploads/avatars", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/api/status")
@@ -43,9 +47,15 @@ async def status():
 
 @app.get("/", name="root")
 async def root(request: Request, current_user = Depends(get_current_user_web)):
-    if not current_user:
-        return RedirectResponse(url=request.url_for('login_page'))
-    return RedirectResponse(url=request.url_for('dashboard_page'))
+    # if not current_user:
+    #     return RedirectResponse(url=request.url_for('login_page'))
+    # return RedirectResponse(url=request.url_for('dashboard_page'))
+    return jinja_templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/api/notify-me", name="notify_me")
+async def notify_me(request: NotifyMe):
+    pass
     return jinja_templates.TemplateResponse("index.html", {"request": request})
 
 

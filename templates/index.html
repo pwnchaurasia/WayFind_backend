@@ -1,31 +1,236 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat</title>
-    </head>
-    <body>
-        <h1>WebSocket Chat</h1>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
-        <script>
-            var ws = new WebSocket("ws://127.0.0.1:8001/ws");
-            ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
-    </body>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Squadra Tech-First Landing Page</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/landing.css') }}">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df259",
+                        "background-light": "#f5f8f6",
+                        "background-dark": "#0a0c0a",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white transition-colors duration-300">
+    <!-- Top Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-panel border-b border-white/5 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <img src="{{ url_for('static', path='/images/icon_final.png') }}" alt="" class="logo">
+            <span class="text-xl font-bold tracking-tighter uppercase italic">Squadra</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <button onclick="scrollToNotify()" class="bg-primary text-background-dark px-4 py-2 rounded-lg text-sm font-bold glow-primary hover:brightness-110 transition-all">
+                Get Notified
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen pt-24 pb-12 px-4 md:px-8 flex flex-col items-center justify-center overflow-hidden road-texture" id="heroSection">
+        <!-- Parallax Road Lines Decor -->
+        <div class="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
+            <div class="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[1px] bg-primary"></div>
+            <div class="absolute left-1/4 -translate-x-1/2 top-0 bottom-0 w-[1px] bg-white/10"></div>
+            <div class="absolute right-1/4 -translate-x-1/2 top-0 bottom-0 w-[1px] bg-white/10"></div>
+        </div>
+
+        <div class="relative z-10 w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <!-- Content Left -->
+            <div class="flex flex-col gap-8 text-center lg:text-left">
+                <div class="inline-flex items-center gap-2 self-center lg:self-start bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
+                    <span class="flex h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-primary">System Online: v2.4.0</span>
+                </div>
+                <h1 class="text-5xl md:text-7xl font-bold leading-[0.9] tracking-tight text-white uppercase italic">
+                    Ride Hard.<br/>
+                    <span class="text-primary text-glow">Stay Connected.</span><br/>
+                    Reach Home Safely.
+                </h1>
+                <p class="text-slate-400 text-lg md:text-xl max-w-lg leading-relaxed">
+                    The ultimate management and safety platform for motorcycle squads. Built for the open road, engineered for pure precision.
+                </p>
+                <!-- Minimal Email Capture -->
+                <div id="notify-section" class="flex flex-col sm:flex-row gap-3 max-w-md">
+                    <div class="relative flex-1">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">alternate_email</span>
+                        <input id="email-input" class="w-full bg-white/5 border border-white/10 rounded-lg py-4 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all placeholder:text-slate-600" placeholder="Enter your email" type="email"/>
+                    </div>
+                    <button onclick="handleJoinSquad()" class="bg-primary text-background-dark font-bold px-8 py-4 rounded-lg uppercase tracking-wider glow-primary hover:brightness-110 transition-all">
+                        Join Squad
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3D Phone Mockup Visual Right -->
+            <div class="relative flex justify-center items-center perspective-1000">
+                <div class="relative w-[280px] h-[580px] bg-black rounded-[40px] border-[8px] border-slate-800 overflow-hidden shadow-2xl rotate-3 lg:rotate-6 hover:rotate-0 transition-transform duration-700">
+                    <!-- App Interface Simulation -->
+                    <div class="h-full w-full bg-[#111] p-4 flex flex-col gap-4">
+                        <div class="flex justify-between items-center px-2 pt-2">
+                            <span class="text-[10px] font-bold text-slate-500 tracking-tighter">9:41</span>
+                            <div class="flex gap-1">
+                                <span class="material-symbols-outlined text-xs text-slate-500">signal_cellular_4_bar</span>
+                                <span class="material-symbols-outlined text-xs text-slate-500">battery_full</span>
+                            </div>
+                        </div>
+                        <div class="glass-panel p-3 rounded-xl">
+                            <p class="text-[10px] text-primary uppercase font-bold tracking-widest">Active Ride</p>
+                            <h3 class="text-white text-lg font-bold">Pacific Coast Route</h3>
+                        </div>
+                        <!-- Map Placeholder -->
+                        <div class="flex-1 bg-slate-900 rounded-2xl overflow-hidden relative border border-white/5">
+                            <img class="w-full h-full object-cover opacity-50 grayscale" data-alt="Futuristic dark mode map showing rider icons and paths" data-location="Los Angeles" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR9s6pdHYFIVrfgTcplQyYN2nq1IOXKico56-vFXCab1Sk1FxrIzdezaPelyEM61pU4eW3SH3I_Y290SmUWzhUsaza9lOviAdKW01rLs7abYCZlcQZ5KK5eK1FA8l90_uZbJSU6ncnazCVQs-3eXgbAz2KXpIlX_1bv0-eq49w-ble7y0g75fySWiqVusAUNjOwesaCS-9u5n-4TfxS1u8nmVlKDt5F9kxOKn4Gye2nqqIgYPvtBWbh2g1TZutiVqhh3dC6YZQnCI"/>
+                            <!-- Rider Markers -->
+                            <div class="absolute top-1/4 left-1/3 p-1 bg-primary rounded-full glow-primary">
+                                <div class="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                            <div class="absolute top-1/2 right-1/4 p-1 bg-white rounded-full">
+                                <div class="w-2 h-2 bg-background-dark rounded-full"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="glass-panel p-2 rounded-lg">
+                                <p class="text-[8px] text-slate-400">Riders</p>
+                                <p class="text-sm font-bold">12 Active</p>
+                            </div>
+                            <div class="glass-panel p-2 rounded-lg">
+                                <p class="text-[8px] text-slate-400">Next Stop</p>
+                                <p class="text-sm font-bold text-primary">Malibu Cafe</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Screen reflection -->
+                    <div class="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none"></div>
+                </div>
+                <!-- Floating Glow Decor -->
+                <div class="absolute -z-10 w-64 h-64 bg-primary/10 blur-[100px] rounded-full"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Grid Features -->
+    <section class="py-24 px-4 md:px-8 bg-background-light dark:bg-background-dark">
+        <div class="max-w-7xl mx-auto flex flex-col gap-12">
+            <div class="text-center md:text-left">
+                <h2 class="text-primary text-sm font-bold uppercase tracking-[0.3em] mb-2">Engineered Performance</h2>
+                <h3 class="text-3xl md:text-5xl font-bold text-white uppercase italic">The Tech-First Advantage</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 grid-rows-2 gap-4 h-auto md:h-[600px]">
+                <!-- Large Card: Live Attendance -->
+                <div class="md:col-span-2 md:row-span-2 glass-panel rounded-2xl p-8 flex flex-col justify-between group hover:border-primary/30 transition-all overflow-hidden relative">
+                    <div class="relative z-10">
+                        <span class="material-symbols-outlined text-4xl text-primary mb-4 block">radar</span>
+                        <h4 class="text-2xl font-bold mb-4 uppercase italic">Live Attendance & Tracking</h4>
+                        <p class="text-slate-400 text-lg max-w-md leading-relaxed">
+                            Never lose a rider. Real-time check-ins and location syncing powered by low-latency edge computing. Monitor group status at a glance.
+                        </p>
+                    </div>
+                    <div class="relative z-10 mt-8">
+                        <button onclick="scrollToNotify()" class="flex items-center gap-2 text-primary font-bold uppercase text-xs tracking-widest hover:gap-4 transition-all cursor-pointer">
+                            Explore Tracking <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </button>
+                    </div>
+                    <!-- Background Visual Decor -->
+                    <div class="absolute right-[8%] bottom-[8%] opacity-20 group-hover:opacity-40 transition-opacity">
+                        <img class="w-full h-full object-contain" data-alt="Abstract pulse wave visual representing real-time data" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbmg7Y0IunaGMOXRDcYFPmqKdGSreKznJTKpMppQQ7vNDqxz-o2_ucuHIiIXCMnwWQXx7r8wqdXDsGdTu-HXDGJOMNO1-dUshpj_xOOxzUL4Ecj2ZzcooDb3CahqLo9CY9Q1JODB4jExDH2eHY1xJaEFCH3_f995TVmljNbZXWhyd4KDvELwz_vA6oMHRMKDyVwKDAS_FB0YwEAAa97ilfM74gO572S1hd9kMwocXQw1mD9AgSaYq6fPg_835GlWyp9EsUmSXIRnQ"/>
+                    </div>
+                </div>
+                <!-- Card: Individual Progress -->
+                <div class="glass-panel rounded-2xl p-8 flex flex-col justify-between group hover:border-primary/30 transition-all overflow-hidden relative">
+                    <div class="relative z-10">
+                        <span class="material-symbols-outlined text-3xl text-primary mb-4 block">map</span>
+                        <h4 class="text-xl font-bold mb-2 uppercase italic">Fog of War Maps</h4>
+                        <p class="text-slate-400 text-sm">
+                            Unlock the world as you ride. Your personal map starts fogged—each route you conquer reveals new territory and earns achievements.
+                        </p>
+                    </div>
+                    <div class="absolute right-4 bottom-4 opacity-10">
+                        <span class="material-symbols-outlined text-6xl text-primary">explore_nearby</span>
+                    </div>
+                </div>
+                <!-- Card: Leaderboards -->
+                <div class="glass-panel rounded-2xl p-8 flex flex-col justify-between group hover:border-primary/30 transition-all overflow-hidden relative bg-gradient-to-br from-transparent to-primary/5">
+                    <div class="relative z-10">
+                        <span class="material-symbols-outlined text-3xl text-primary mb-4 block">emoji_events</span>
+                        <h4 class="text-xl font-bold mb-2 uppercase italic">Rider Leaderboards</h4>
+                        <p class="text-slate-400 text-sm">
+                            Compete with your squad and the community. Track miles ridden, routes conquered, and achievements earned. Rise through the ranks.
+                        </p>
+                    </div>
+                    <div class="absolute right-4 bottom-4 opacity-30 group-hover:opacity-50 transition-opacity">
+                        <div class="flex flex-col gap-1 text-right">
+                            <span class="text-xs text-primary font-bold">#1 RoadKing</span>
+                            <span class="text-xs text-slate-400">#2 SpeedDemon</span>
+                            <span class="text-xs text-slate-500">#3 MilesMaster</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action Section -->
+    <section class="py-24 px-4 md:px-8 relative overflow-hidden">
+        <div class="absolute inset-0 bg-primary opacity-5"></div>
+        <div class="max-w-4xl mx-auto glass-panel rounded-3xl p-12 md:p-20 text-center relative border-primary/20 border">
+            <h2 class="text-3xl md:text-6xl font-black text-white uppercase italic leading-tight mb-8">
+                Ready to Lead <br/><span class="text-primary text-glow">The Pack?</span>
+            </h2>
+            <p class="text-slate-400 text-lg md:text-xl mb-10 max-w-xl mx-auto">
+                Experience the future of motorcycle group management. Join the waitlist for exclusive early access to the Pro dashboard.
+            </p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button onclick="scrollToNotify()" class="bg-primary text-background-dark font-black px-12 py-5 rounded-lg uppercase tracking-tighter text-lg hover:scale-105 transition-transform glow-primary">
+                    Get Early Access
+                </button>
+                <button onclick="scrollToNotify()" class="bg-white/5 border border-white/10 text-white font-bold px-12 py-5 rounded-lg uppercase tracking-tighter text-lg hover:bg-white/10 transition-colors">
+                    Learn More
+                </button>
+            </div>
+            <!-- Tech Specs Decoration -->
+            <div class="absolute top-4 left-4 flex flex-col gap-1 items-start opacity-30">
+                <div class="w-24 h-[1px] bg-primary"></div>
+                <span class="text-[8px] font-mono text-primary uppercase">Alpha Protocol</span>
+            </div>
+            <div class="absolute bottom-4 right-4 flex flex-col gap-1 items-end opacity-30">
+                <span class="text-[8px] font-mono text-primary uppercase">Encrypted: 256-AES</span>
+                <div class="w-24 h-[1px] bg-primary"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 border-t border-white/5">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-2">
+                <img src="{{ url_for('static', path='/images/icon_final.png') }}" alt="" class="logo-bottom">
+                <span class="text-lg font-bold tracking-tighter uppercase italic">Squadra</span>
+            </div>
+            <div class="flex gap-8 text-xs font-bold uppercase tracking-widest text-slate-500">
+                <a class="hover:text-primary" href="https://instagram.com/parikrama_karta" target="_blank">Instagram</a>
+            </div>
+            <p class="text-[10px] text-slate-600 font-mono">
+                © 2024 SQUADRA TECH. ALL SYSTEMS OPERATIONAL.
+            </p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', path='/js/landing.js') }}"></script>
+</body>
 </html>
