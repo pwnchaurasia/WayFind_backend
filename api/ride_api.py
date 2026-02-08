@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Body
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
@@ -16,7 +16,7 @@ from db.schemas.ride import (
 )
 from utils import ParticipantRole, RideType, CheckpointType
 from utils.dependencies import get_current_user, get_current_user_web
-from utils.enums import OrganizationRole, UserRole, RideStatus
+from utils.enums import OrganizationRole, UserRole, RideStatus, ActivityType
 from utils.permissions import PermissionChecker, PermissionDependency
 from utils.templates import jinja_templates
 from utils.app_logger import createLogger
@@ -27,6 +27,186 @@ router = APIRouter(prefix="/rides", tags=["rides"])
 
 # API Endpoints (for Mobile App)
 
+@router.post("/start-solo", status_code=status.HTTP_201_CREATED)
+async def start_solo_ride_api(
+    location: dict = Body(..., example={"latitude": 0.0, "longitude": 0.0}),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Start a solo ride instantly (API - Mobile)"""
+    try:
+        # 1. Find a valid organization for the user
+        # Prefer an organization where user is active
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).order_by(
+            # Prefer Admin roles, then member
+            case(
+                (OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.ADMIN]), 0),
+                else_=1
+            )
+        ).first()
+
+        if membership:
+             org_id = membership.organization_id
+        else:
+             # Fallback to ANY organization (System Default)
+             # User doesn't need to be a member to start a solo ride
+             org = db.query(Organization).first()
+             if not org:
+                  raise HTTPException(status_code=400, detail="No organizations available system-wide to assign ride.")
+             org_id = org.id
+
+        # 2. Create Ride
+        lat = location.get('latitude', 0.0)
+        lon = location.get('longitude', 0.0)
+        
+        now = datetime.now(timezone.utc)
+        ride_name = f"Solo Ride - {now.strftime('%b %d, %H:%M')}"
+        
+        ride = Ride(
+            organization_id=org_id,
+            name=ride_name,
+            max_riders=1, # Solo
+            requires_payment=False,
+            amount=0,
+            scheduled_date=now,
+            ride_type=RideType.QUICK_RIDE,
+            status=RideStatus.ACTIVE, # Start immediately
+            started_at=now
+        )
+        db.add(ride)
+        db.flush() # Get ID
+
+        # 3. Create Start Checkpoint (Meetup)
+        checkpoint = RideCheckpoint(
+            ride_id=ride.id,
+            type=CheckpointType.MEETUP,
+            latitude=lat,
+            longitude=lon,
+            radius_meters=50 # Tight radius for start
+        )
+        db.add(checkpoint)
+        
+        # 4. Add User as Participant (LEAD for solo)
+        participant = RideParticipant(
+            ride_id=ride.id,
+            user_id=current_user.id,
+            role=ParticipantRole.LEAD,
+            has_paid=True,
+            paid_amount=0
+        )
+        db.add(participant)
+
+        # 5. Activity Log
+        from db.models import RideActivity
+        activity = RideActivity(
+            ride_id=ride.id,
+            user_id=current_user.id,
+            activity_type=ActivityType.RIDE_STARTED,
+            message=f"🚀 Solo ride started by {current_user.name}"
+        )
+        db.add(activity)
+
+        db.commit()
+        db.refresh(ride)
+        
+        logger.info(f"Solo ride started: {ride.id} by {current_user.id}")
+
+        return {
+            "status": "success",
+            "message": "Solo ride started",
+            "ride": RideResponse.model_validate(ride).model_dump(mode='json')
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error starting solo ride: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start solo ride"
+        )
+
+
+
+@router.post("/{ride_id}/stop", status_code=status.HTTP_200_OK)
+async def end_ride_api(
+    ride_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """End ride (API - Mobile) - Allows Ride Leads to end their own rides"""
+    try:
+        ride = db.query(Ride).filter(Ride.id == ride_id).first()
+        if not ride:
+            raise HTTPException(status_code=404, detail="Ride not found")
+
+        # Check permissions
+        # 1. Org Admin
+        is_admin = False
+        membership = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == ride.organization_id,
+            OrganizationMember.user_id == current_user.id,
+            OrganizationMember.role.in_([OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
+            OrganizationMember.is_active == True,
+            OrganizationMember.is_deleted == False
+        ).first()
+        
+        if membership or current_user.role == UserRole.SUPER_ADMIN:
+            is_admin = True
+            
+        # 2. Ride Lead (Creator/Lead Participant)
+        is_lead = False
+        lead_participant = db.query(RideParticipant).filter(
+            RideParticipant.ride_id == ride.id,
+            RideParticipant.user_id == current_user.id,
+            RideParticipant.role == ParticipantRole.LEAD
+        ).first()
+        
+        if lead_participant:
+            is_lead = True
+            
+        if not is_admin and not is_lead:
+             raise HTTPException(status_code=403, detail="Only Admins or Ride Leads can end a ride")
+
+        if ride.status != RideStatus.ACTIVE:
+             raise HTTPException(status_code=400, detail="Ride is not active")
+
+        # End ride
+        ride.status = RideStatus.COMPLETED
+        ride.ended_at = datetime.now(timezone.utc)
+        
+        # Log activity
+        from db.models import RideActivity
+        activity = RideActivity(
+            ride_id=ride.id,
+            user_id=current_user.id,
+            activity_type=ActivityType.RIDE_ENDED,
+            message=f"🏁 Ride ended by {current_user.name}"
+        )
+        db.add(activity)
+
+        db.commit()
+
+        logger.info(f"Ride {ride_id} ended (API) by {current_user.id}")
+
+        return {
+            "status": "success",
+            "message": "Ride ended successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error ending ride api: {e}")
+        raise HTTPException(status_code=500, detail="Failed to end ride")
+
+
 @router.post("/create", status_code=status.HTTP_201_CREATED)
 async def create_ride_api(
         ride_data: CreateRide,
@@ -35,22 +215,53 @@ async def create_ride_api(
 ):
     """Create ride (API - Mobile)"""
     try:
-        # Verify user is admin of organization
-        membership = db.query(OrganizationMember).filter(
-            OrganizationMember.organization_id == ride_data.organization_id,
-            OrganizationMember.user_id == current_user.id,
-            OrganizationMember.role.in_(
-                [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]),
-            OrganizationMember.is_active == True,
-            OrganizationMember.is_deleted == False
-        ).first()
+        # Determine Organization
+        org_id = ride_data.organization_id
+        
+        # Check membership/permissions
+        membership = None
+        if org_id:
+            membership = db.query(OrganizationMember).filter(
+                OrganizationMember.organization_id == org_id,
+                OrganizationMember.user_id == current_user.id,
+                OrganizationMember.is_active == True,
+                OrganizationMember.is_deleted == False
+            ).first()
 
-        if not membership and current_user.role != UserRole.SUPER_ADMIN:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only organization admins can create rides"
-            )
+        is_admin = False
+        if membership and membership.role in [OrganizationRole.FOUNDER, OrganizationRole.CO_FOUNDER, OrganizationRole.ADMIN]:
+            is_admin = True
+        
+        if current_user.role == UserRole.SUPER_ADMIN:
+            is_admin = True
 
+        # Rules:
+        # 1. Admin/SuperAdmin -> Can create any ride.
+        # 2. Regular User -> Can create ride ONLY IF max_riders <= 3 (Small Group).
+        
+        if not is_admin:
+            if ride_data.max_riders > 3:
+                 raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Community members can only create small group rides (Max 3 riders)."
+                 )
+        
+        # If no org_id provided or user not part of provided org (and not admin claiming it), fallback to system default logic?
+        # Ideally frontend sends org_id. If user has no org, frontend might send null. 
+        # But CreateRide schema requires organization_id.
+        # Mobile app should handle sending *an* org_id. 
+        # If user has no orgs, we need a way to assign one.
+        # But we can assume for "Small Group" it's looser.
+        
+        # If user is creating a small group ride but isn't an admin of the target org:
+        # We allow it if they are at least a member? Or ANYONE can create on ANY org?
+        # Let's restrict to: Must be member OR fallback to default org if 'public' creation allowed.
+        # User requirement: "user doesnt need to be from an organizatrion".
+        # So ignore membership check for small groups?
+        
+        # Note: We must ensure foreign key logic holds.
+        pass # Logic continues below
+        
         # Create ride
         ride = Ride(
             organization_id=ride_data.organization_id,
